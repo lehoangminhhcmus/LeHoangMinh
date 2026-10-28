@@ -1,0 +1,61 @@
+name: Build and release Windows app
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate installer script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path windows/Install-User.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+      - name: Test and publish
+        shell: cmd
+        run: windows\build-windows.bat
+      - name: Verify installer and package portable app
+        shell: pwsh
+        run: |
+          if (!(Test-Path windows/dist/installer/GammaCNFReader-CSharp-Setup.exe)) { throw 'Installer missing; Inno Setup 6 must be installed.' }
+          Copy-Item windows/Install.cmd, windows/Install-User.ps1, windows/README.md windows/dist/app/
+          Compress-Archive -Path windows/dist/app/* -DestinationPath windows/dist/GammaCNFReader-CSharp-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GammaCNFReader-CSharp-Windows-x64
+          path: |
+            windows/dist/GammaCNFReader-CSharp-Windows-x64.zip
+            windows/dist/installer/GammaCNFReader-CSharp-Setup.exe
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: GammaCNFReader-CSharp-Windows-x64
+          path: release-files
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh release create "$RELEASE_TAG" \
+            release-files/GammaCNFReader-CSharp-Windows-x64.zip \
+            release-files/installer/GammaCNFReader-CSharp-Setup.exe \
+            --title "Gamma CNF Reader $RELEASE_TAG (Windows x64)" \
+            --notes-file windows/RELEASE_NOTES.md --prerelease --verify-tag
