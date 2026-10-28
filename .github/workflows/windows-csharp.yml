@@ -2,6 +2,7 @@ name: Build and release Windows app
 on:
   workflow_dispatch:
   push:
+    branches: ['main']
     tags: ['v*']
 permissions:
   contents: read
@@ -23,6 +24,26 @@ jobs:
       - name: Test and publish
         shell: cmd
         run: windows\build-windows.bat
+      - name: Run Windows WPF smoke checks
+        shell: pwsh
+        run: |
+          dotnet run --project windows/GammaCnf.Checks -c Release -- --write-fixture "$env:RUNNER_TEMP/smoke.cnf"
+          if ($LASTEXITCODE) { throw 'Fixture generation failed' }
+          $exe = Resolve-Path windows/dist/app/GammaCNFReader.exe
+          $out = Join-Path $env:RUNNER_TEMP 'gamma-ui-smoke'
+          $process = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', "`"$env:RUNNER_TEMP/smoke.cnf`"", "`"$out`"") -PassThru
+          if (!$process.WaitForExit(60000)) { Stop-Process -Id $process.Id -Force; throw 'WPF smoke check timed out' }
+          if ($process.ExitCode -ne 0 -or !(Test-Path "$out/ui-smoke-success.txt")) {
+            if (Test-Path "$out/ui-smoke-error.txt") { Get-Content "$out/ui-smoke-error.txt" }
+            throw 'WPF smoke check failed'
+          }
+          Get-Content "$out/ui-smoke-success.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WPF-smoke-evidence
+          path: ${{ runner.temp }}/gamma-ui-smoke/
+          if-no-files-found: ignore
       - name: Verify installer and package portable app
         shell: pwsh
         run: |

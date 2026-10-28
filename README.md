@@ -13,13 +13,12 @@ Bản đầu được phát hành dưới dạng **prerelease**, chưa ký số.
 
 ## Chức năng
 
-- Mở hoặc kéo thả file CNF; chỉ đọc file gốc, xử lý tại máy.
-- Xem phổ theo kênh hoặc keV khi có hiệu chuẩn năng lượng hợp lệ.
-- Zoom bằng con lăn hoặc kéo chọn vùng; Home để xem toàn phổ; thang tuyến tính/log.
-- Xem thời gian thực/sống, thời gian chết, số đếm và hệ số hiệu chuẩn.
-- Xuất CSV và PNG.
+- Mở/kéo thả CNF, zoom, thang tuyến tính/log, xuất CSV/PNG.
+- **Hiệu chuẩn:** nhập a0–a3, áp dụng và lưu lại CNF; ghi đè có bản sao `.bak`. Chỉ ghi layout ACQP POLY/keV đã kiểm chứng, không thay số đếm gốc.
+- **Trừ phông:** chọn CNF khác, chuẩn hóa theo live time hoặc α thủ công; kiểm tra căn chỉnh và giữ net âm/sai số.
+- **ROI:** Shift+kéo hoặc nhập kênh; fit Gaussian + nền tuyến tính, diện tích ± 1σ, tâm, FWHM, χ²/ν; xuất toàn bộ ROI ra TXT.
 
-Chưa nhận diện đồng vị, fit đỉnh hoặc tính hoạt độ. Hỗ trợ một khối SPEC, 1–32.768 kênh uint32, đa thức hiệu chuẩn tối đa bậc 3. Kênh bắt đầu từ 0. Thời gian giữ nguyên theo file, không tự suy diễn múi giờ.
+[Hướng dẫn đầy đủ và phương pháp tính](windows/README.md). Một Gaussian không tách đỉnh chồng; chưa nhận diện đồng vị hoặc tính hoạt độ. Kết quả cần đối chiếu trước khi dùng chính thức. Lưu CNF chỉ ghi hiệu chuẩn; số đếm net và ROI xuất CSV/TXT. Các kết quả phân tích cũ bên trong CNF không được tính lại.
 
 ## Phát triển
 
@@ -36,7 +35,7 @@ Kiểm tra file mẫu riêng:
 dotnet run --project windows/GammaCnf.Checks -- "D:\Data\Test_spc.cnf"
 ```
 
-18 kiểm tra dữ liệu đạt với file mẫu trong môi trường phát triển. Không có file mẫu người dùng trong repository. Nếu không cung cấp file mẫu, chỉ chạy 11 kiểm tra chung và báo NOT RUN cho nhóm mẫu.
+58 kiểm tra dữ liệu đạt với file mẫu trong môi trường phát triển. Không có file mẫu người dùng trong repository. Nếu không cung cấp file mẫu, chỉ chạy 49 kiểm tra chung và báo NOT RUN cho nhóm mẫu.
 
 Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo bộ cài. Workflow GitHub Actions xây dựng bản Windows và phát hành khi đẩy tag `v*`; xem trạng thái workflow để xác nhận build và phát hành thực sự thành công.
 

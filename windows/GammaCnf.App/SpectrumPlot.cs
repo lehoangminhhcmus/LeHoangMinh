@@ -9,6 +9,9 @@ namespace GammaCnf.App;
 public sealed class SpectrumPlot : FrameworkElement
 {
     public Spectrum? Spectrum { get; set; }
+    public double[]? Values { get; set; }
+    public IReadOnlyList<RoiResult> Rois { get; set; } = [];
+    public event Action<int,int>? RoiSelected;
     public bool EnergyAxis { get; set; }
     public bool LogScale { get; set; }
     public event Action<string>? HoverChanged;
@@ -60,10 +63,12 @@ public sealed class SpectrumPlot : FrameworkElement
         }
         if (right <= left) Reset();
         int first=Math.Max(0, (int)Math.Floor(left)), last=Math.Min(s.Counts.Length-1,(int)Math.Ceiling(right));
-        double maximum=1;
-        for(int i=first;i<=last;i++) maximum=Math.Max(maximum,s.Counts[i]);
-        double top=LogScale ? Math.Max(1,Math.Log10(maximum)+.1) : maximum*1.08;
-        double Y(uint count) => area.Bottom - (LogScale ? Math.Log10(Math.Max(1,count)) : count)/top*area.Height;
+        double Value(int i) => Values?[i] ?? s.Counts[i];
+        double maximum=1, minimum=0, positiveMin=double.PositiveInfinity;
+        for(int i=first;i<=last;i++) { maximum=Math.Max(maximum,Value(i));minimum=Math.Min(minimum,Value(i));if(Value(i)>0)positiveMin=Math.Min(positiveMin,Value(i)); }
+        double bottom=LogScale ? (double.IsPositiveInfinity(positiveMin)?0:Math.Min(0,Math.Floor(Math.Log10(positiveMin)))) : minimum*1.08;
+        double top=LogScale ? Math.Max(bottom+1,Math.Log10(maximum)+.1) : maximum*1.08;
+        double Y(double count) => area.Bottom - ((LogScale ? Math.Log10(Math.Max(1e-12,count)) : count)-bottom)/(top-bottom)*area.Height;
         for(int i=0;i<=5;i++)
         {
             double f=i/5.0;
@@ -71,24 +76,46 @@ public sealed class SpectrumPlot : FrameworkElement
             dc.DrawLine(GridPen,new Point(x,area.Top),new Point(x,area.Bottom));
             dc.DrawLine(GridPen,new Point(area.Left,y),new Point(area.Right,y));
             Text(dc,(XValue(left)+f*(XValue(right)-XValue(left))).ToString("0.##"),new Point(x,area.Bottom+8),12,TextAlignment.Center);
-            Text(dc,(LogScale ? Math.Pow(10,f*top) : f*top).ToString("0.##"),new Point(area.Left-8,y-8),12,TextAlignment.Right);
+            Text(dc,(LogScale ? Math.Pow(10,bottom+f*(top-bottom)) : bottom+f*(top-bottom)).ToString("0.##"),new Point(area.Left-8,y-8),12,TextAlignment.Right);
         }
         Text(dc, EnergyAxis ? "Năng lượng (keV)" : "Kênh (bắt đầu từ 0)",new Point(area.Left+area.Width/2,area.Bottom+35),13,TextAlignment.Center);
-        Text(dc,LogScale ? "Số đếm / kênh • log (kênh 0 số đếm được ẩn)" : "Số đếm / kênh",new Point(area.Left,3));
+        Text(dc,LogScale ? "Số đếm / kênh • log (ẩn số đếm ≤ 0)" : "Số đếm / kênh",new Point(area.Left,3));
         dc.PushClip(new RectangleGeometry(area));
+        int roiId=0;
+        foreach(var roi in Rois)
+        {
+            roiId++;
+            double a=XPixel(roi.Range.Start-.5),b=XPixel(roi.Range.End+.5);
+            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(22,230,146,37)),null,new Rect(a,area.Top,Math.Max(0,b-a),area.Height));
+            if(b>=area.Left && a<=area.Right) Text(dc,$"ROI {roiId}",new Point(Math.Max(area.Left,a)+3,area.Top+5),11);
+        }
         var geometry=new StreamGeometry();
         using(var ctx=geometry.Open())
         {
             bool active=false;
             for(int i=first;i<=last;i++)
             {
-                if(LogScale && s.Counts[i]==0) { active=false; continue; }
-                var point=new Point(XPixel(i),Y(s.Counts[i]));
+                if(LogScale && Value(i)<=0) { active=false; continue; }
+                var point=new Point(XPixel(i),Y(Value(i)));
                 if(!active) { ctx.BeginFigure(point,false,false); active=true; }
                 else ctx.LineTo(point,true,false);
             }
         }
         geometry.Freeze();dc.DrawGeometry(null,LinePen,geometry);
+        foreach(var roi in Rois.Where(r=>r.Success))
+        {
+            var fit=new StreamGeometry();using(var ctx=fit.Open())
+            {
+                bool active=false;
+                for(int i=Math.Max(first,roi.Range.Start);i<=Math.Min(last,roi.Range.End);i++)
+                {
+                    double v=roi.Model(i);if(LogScale&&v<=0) {active=false;continue;}
+                    var point=new Point(XPixel(i),Y(v));
+                    if(!active){ctx.BeginFigure(point,false,false);active=true;}else ctx.LineTo(point,true,false);
+                }
+            }
+            dc.DrawGeometry(null,new Pen(Brushes.IndianRed,1.5),fit);
+        }
         if(selection is double start)
         {
             double a=Math.Min(start,selectionEnd), b=Math.Max(start,selectionEnd);
@@ -118,7 +145,7 @@ public sealed class SpectrumPlot : FrameworkElement
         if(!Area.Contains(pos)) return;
         int i=Math.Clamp((int)Math.Round(ChannelAt(pos.X)),0,Spectrum.Counts.Length-1);
         string energy=Spectrum.Energy(i) is double value ? $"   •   {value:F3} keV" : "";
-        HoverChanged?.Invoke($"Kênh {i}{energy}   •   {Spectrum.Counts[i]:N0} số đếm");
+        HoverChanged?.Invoke($"Kênh {i}{energy}   •   Gốc: {Spectrum.Counts[i]:N0}   •   Đang xem: {Values?[i] ?? Spectrum.Counts[i]:N3} số đếm");
     }
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
@@ -127,7 +154,9 @@ public sealed class SpectrumPlot : FrameworkElement
         if(Math.Abs(start-selectionEnd)>8)
         {
             double a=ChannelAt(Math.Min(start,selectionEnd)), b=ChannelAt(Math.Max(start,selectionEnd));
-            if(b-a>=1) { left=a;right=b; }
+            if(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                RoiSelected?.Invoke(Math.Max(0,(int)Math.Floor(a)),Math.Min(Spectrum!.Counts.Length-1,(int)Math.Ceiling(b)));
+            else if(b-a>=1) { left=a;right=b; }
         }
         selection=null;ReleaseMouseCapture();InvalidateVisual();
     }
