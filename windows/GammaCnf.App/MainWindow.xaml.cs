@@ -19,12 +19,14 @@ public sealed record RoiRow(int Id,RoiResult Result)
     public string GrossCounts=>Result.Counts?.Gross.ToString("N0")??"—";
     public string BackgroundCounts=>F(Result.Counts?.ScaledBackground);
     public string NetCounts=>Result.Counts is {} c?$"{F(c.Net)} ± {F(c.NetSigma)}":"—";
+    public string Origin=>Result.Origin=="Automatic"?"Tự dò":"Thủ công";
     public string Position=>F(Result.Centroid);
     public string Energy=>F(Result.EnergyKeV);
     public string Width=>F(Result.FwhmChannels);
     public string EnergyWidth=>F(Result.FwhmKeV);
     public string ChiSquare=>F(Result.ReducedChiSquare);
-    public string Status=>Result.Status;
+    public string Status=>Result.Status+(Result.Origin=="Automatic"?" • ROI tự dò.":"");
+    public string Detail=>Result.Status+"\n"+Result.DetectionNote;
 }
 public partial class MainWindow : Window
 {
@@ -32,6 +34,9 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<OpenSpectrum> documents=[];
     private OpenSpectrum? active;
     private bool restoringView;
+    private bool updatingRows;
+    private CancellationTokenSource? peakCancellation;
+    private OpenSpectrum? peakDocument;
     private AnalysisSession? session=>active?.Session;
     private string? currentPath {get=>active?.Path;set{if(active is not null&&value is not null)active.Path=value;}}
     private string? backgroundPath {get=>active?.BackgroundPath;set{if(active is not null)active.BackgroundPath=value;}}
@@ -75,9 +80,10 @@ public partial class MainWindow : Window
         var dirty=documents.Where(d=>d.CalibrationDirty).Select(d=>Path.GetFileName(d.Path)).ToArray();
         if(dirty.Length>0&&MessageBox.Show(this,"Các phổ chưa lưu hiệu chuẩn: "+string.Join(", ",dirty)+". Vẫn đóng app?","Hiệu chuẩn chưa lưu",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
         if(!e.Cancel&&efficiencyWorkspace.Dirty&&MessageBox.Show(this,"Điểm/bộ chuẩn hiệu suất chưa lưu JSON và sẽ mất khi đóng app. Vẫn đóng?","Chưa lưu chuẩn hiệu suất",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
+        if(!e.Cancel)peakCancellation?.Cancel();
         base.OnClosing(e);
     }
-    internal void RunSmokeChecks(string path,string directory)
+    internal async Task RunSmokeChecks(string path,string directory)
     {
         Directory.CreateDirectory(directory);
         LoadFile(path);
@@ -134,6 +140,29 @@ public partial class MainWindow : Window
         var counts=rows.Single().Result.Counts??throw new Exception("ROI counts missing from UI.");
         if(counts.Gross!=2100||counts.Net>=0||string.IsNullOrWhiteSpace(rows[0].NetCounts)||rows[0].GrossCounts=="—")throw new Exception("ROI sums in multi-spectrum UI failed.");
         CloseDocument(second);if(active!=first||documents.Count!=1||session!.Scale!=2)throw new Exception("Closing a spectrum lost the other document.");
+        ClearBackgroundClick(this,new RoutedEventArgs());
+        ClearRoisClick(this,new RoutedEventArgs());
+        await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
+        if(ranges.Count!=1||first.AutomaticRois.Count!=1||!rows.Single().Result.Success||Math.Abs(rows.Single().Result.Centroid!.Value-300.3)>.1)throw new Exception("Automatic peak/ROI UI failed.");
+        var automaticRange=ranges[0];
+        pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
+        if(!rows[0].Result.DetectionNote.Contains("changed since detection"))throw new Exception("Changing background did not mark automatic search provenance stale.");
+        ClearBackgroundClick(this,new RoutedEventArgs());
+        await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
+        if(rows[0].Result.DetectionNote.Contains("changed since detection"))throw new Exception("New automatic search retained stale provenance.");
+        if(ranges.Count!=1||ranges[0]!=automaticRange)throw new Exception("Repeated automatic detection duplicated ROI.");
+        RoiGrid.SelectedItem=rows[0];RoiStart.Text=(automaticRange.Start-1).ToString();RoiEnd.Text=(automaticRange.End+1).ToString();EditRoiClick(this,new RoutedEventArgs());
+        if(first.AutomaticRois.Count!=0||rows[0].Result.Origin!="Manual")throw new Exception("Editing automatic ROI did not create a retained manual ROI.");
+        var manualRange=ranges[0];await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
+        if(ranges.Count!=1||ranges[0]!=manualRange||first.AutomaticRois.Count!=0)throw new Exception("Automatic detection overwrote existing manual ROI.");
+        ClearRoisClick(this,new RoutedEventArgs());
+        var pending=RunPeakSearchAsync(first,new PeakSearchOptions(),true);CancelPeakClick(this,new RoutedEventArgs());await pending;
+        if(ranges.Count!=0)throw new Exception("Cancelled peak search changed ROI.");
+        await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
+        RoiAnalysis.ExportReport(Path.Combine(directory,"automatic-roi.txt"),session!,path,null,"None",rows.Select(r=>r.Result));
+        UpdateLayout();var automaticImage=new RenderTargetBitmap(Math.Max(1,(int)Plot.ActualWidth),Math.Max(1,(int)Plot.ActualHeight),96,96,PixelFormats.Pbgra32);automaticImage.Render(Plot);
+        var automaticEncoder=new PngBitmapEncoder();automaticEncoder.Frames.Add(BitmapFrame.Create(automaticImage));using(var f=File.Create(Path.Combine(directory,"automatic-peaks.png")))automaticEncoder.Save(f);
+        File.WriteAllText(Path.Combine(directory,"automatic-peak-success.txt"),"PASS: asynchronous automatic search, Gaussian ROI, repeated search, manual ROI edit/preservation, cancellation, provenance TXT");
         first.CalibrationDirty=false;CloseDocument(first);if(active is not null||documents.Count!=0||Plot.Spectrum is not null)throw new Exception("Closing final spectrum did not clear the UI.");
         File.WriteAllText(Path.Combine(directory,"multi-spectrum-success.txt"),"PASS: multi-open/deduplicate/previous/next/close; per-spectrum ROI, calibration drafts, background/time scale, log view and zoom; direct ROI totals");
     }
@@ -163,7 +192,7 @@ public partial class MainWindow : Window
         if(active is null)return;var view=active.View;
         view.Coefficients=[A0.Text,A1.Text,A2.Text,A3.Text];view.Energy=EnergyCheck.IsChecked==true;view.Log=LogCheck.IsChecked==true;
         view.TimeBasis=TimeBasisChoice.SelectedIndex;view.AllowChannelOnly=AllowChannelOnly.IsChecked==true;
-        view.RoiStart=RoiStart.Text;view.RoiEnd=RoiEnd.Text;view.Viewport=Plot.Viewport;view.SelectedRoi=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
+        view.RoiStart=RoiStart.Text;view.RoiEnd=RoiEnd.Text;view.PeakMinimumFwhm=PeakMinWidth.Text;view.PeakMaximumFwhm=PeakMaxWidth.Text;view.PeakThreshold=PeakThreshold.Text;view.PeakPadding=PeakPadding.Text;view.ReplaceAutomatic=ReplaceAutomatic.IsChecked==true;view.Viewport=Plot.Viewport;view.SelectedRoi=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
     }
     private void Activate(OpenSpectrum document)
     {
@@ -174,7 +203,7 @@ public partial class MainWindow : Window
             var view=document.View;SetCoefficientFields();
             if(view.Coefficients.Length==4){A0.Text=view.Coefficients[0];A1.Text=view.Coefficients[1];A2.Text=view.Coefficients[2];A3.Text=view.Coefficients[3];}
             EnergyCheck.IsChecked=view.Energy;LogCheck.IsChecked=view.Log;TimeBasisChoice.SelectedIndex=view.TimeBasis;AllowChannelOnly.IsChecked=view.AllowChannelOnly;
-            RoiStart.Text=view.RoiStart;RoiEnd.Text=view.RoiEnd;
+            RoiStart.Text=view.RoiStart;RoiEnd.Text=view.RoiEnd;PeakMinWidth.Text=view.PeakMinimumFwhm;PeakMaxWidth.Text=view.PeakMaximumFwhm;PeakThreshold.Text=view.PeakThreshold;PeakPadding.Text=view.PeakPadding;ReplaceAutomatic.IsChecked=view.ReplaceAutomatic;
             PendingBackgroundLabel.Text=pendingBackgroundPath is null?"Chưa chọn file":Path.GetFileName(pendingBackgroundPath)+$" • live: {pendingBackground?.LiveTime?.ToString("N3")??"NA"} s • real: {pendingBackground?.RealTime?.ToString("N3")??"NA"} s";
             ScaleText.Text=session?.Background is null?"":F(session.Scale);
             CsvButton.IsEnabled=PngButton.IsEnabled=true;Refresh();
@@ -200,16 +229,17 @@ public partial class MainWindow : Window
     }
     private void CloseDocument(OpenSpectrum document)
     {
+        if(ReferenceEquals(document,peakDocument))peakCancellation?.Cancel();
         int index=documents.IndexOf(document);restoringView=true;
         try{if(ReferenceEquals(active,document))active=null;documents.Remove(document);OpenedSpectra.SelectedItem=null;}
         finally{restoringView=false;}
         if(documents.Count>0)Activate(documents[Math.Clamp(index,0,documents.Count-1)]);
         else
         {
-            rows.Clear();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.Reset();
+            rows.Clear();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.DetectedPeaks=[];Plot.Reset();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.5.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.6.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -221,7 +251,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.5.0";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.6.0";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
@@ -235,10 +265,77 @@ public partial class MainWindow : Window
     private void Refit()
     {
         if(session is null)return;
-        rows.Clear();int id=0;
-        foreach(var range in ranges)rows.Add(new RoiRow(++id,RoiAnalysis.Fit(session,range)));
-        Plot.Rois=rows.Select(r=>r.Result).ToArray();Plot.InvalidateVisual();
+        var selected=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
+        updatingRows=true;
+        try
+        {
+            rows.Clear();int id=0;
+            foreach(var range in ranges)
+            {
+                var result=active!.AutomaticRois.TryGetValue(range,out var automatic)?PeakSearch.Analyze(session,automatic):RoiAnalysis.Fit(session,range);
+                if(result.Origin=="Automatic"&&(!active.AutomaticSearchRevisions.TryGetValue(range,out long searchedRevision)||searchedRevision!=session.Revision))result=result with{Status=result.Status+" • Phông/hiệu chuẩn đã đổi, hãy dò lại.",DetectionNote=result.DetectionNote+"; spectrum/calibration/background changed since detection; re-run search"};
+                rows.Add(new RoiRow(++id,result));
+            }
+            if(selected is not null)RoiGrid.SelectedItem=rows.FirstOrDefault(r=>r.Result.Range==selected);
+        }
+        finally{updatingRows=false;}
+        Plot.Rois=rows.Select(r=>r.Result).ToArray();Plot.DetectedPeaks=active!.AutomaticRois.Values.SelectMany(r=>r.Peaks).ToArray();Plot.InvalidateVisual();
     }
+    private async void AutoPeakClick(object sender,RoutedEventArgs e)
+    {
+        try
+        {
+            if(active is null)throw new CnfException("Mở phổ trước khi dò đỉnh.");
+            var options=new PeakSearchOptions(Number(PeakMinWidth.Text),Number(PeakMaxWidth.Text),Number(PeakThreshold.Text),Number(PeakPadding.Text));options.Validate();
+            await RunPeakSearchAsync(active,options,ReplaceAutomatic.IsChecked==true);
+        }
+        catch(Exception error)when(error is CnfException or ArgumentException or OverflowException){Error(error);}
+    }
+    private async Task RunPeakSearchAsync(OpenSpectrum document,PeakSearchOptions options,bool replace)
+    {
+        if(peakCancellation is not null)throw new CnfException("Đang dò đỉnh; hãy đợi hoặc bấm Hủy dò.");
+        options.Validate();var revision=document.Session.Values;
+        var values=(double[])revision.Clone();var variances=(double[])document.Session.Variances.Clone();
+        using var cancellation=new CancellationTokenSource();peakCancellation=cancellation;peakDocument=document;
+        PeakSearchButton.IsEnabled=false;CancelPeakButton.IsEnabled=true;Status.Text="Đang dò đỉnh toàn phổ: "+Path.GetFileName(document.Path)+"…";
+        try
+        {
+            var result=await Task.Run(()=>PeakSearch.Find(values,variances,options,cancellation.Token),cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            if(!documents.Contains(document))return;
+            if(!ReferenceEquals(revision,document.Session.Values)){Status.Text="Phổ/hiệu chuẩn/phông đã thay đổi trong lúc dò; đã bỏ kết quả cũ. Hãy dò lại.";return;}
+            var merge=ApplyAutomaticRois(document,result,replace);
+            if(ReferenceEquals(active,document))Refit();
+            Status.Text=$"{Path.GetFileName(document.Path)}: {result.Peaks.Count} ứng viên, thêm {merge.Accepted.Count} ROI; bỏ {merge.SkippedOverlap} ROI chồng vùng đang có, {merge.SkippedCapacity} vì đủ 100 ROI."+
+                (result.Truncated?" Đã chạm giới hạn 100 ứng viên.":"")+" Kiểm tra nhóm đỉnh, nền và giới hạn ROI trước khi định lượng.";
+        }
+        catch(OperationCanceledException){Status.Text="Đã hủy dò đỉnh; ROI trước đó được giữ nguyên.";}
+        finally{peakCancellation=null;peakDocument=null;PeakSearchButton.IsEnabled=true;CancelPeakButton.IsEnabled=false;}
+    }
+    private static RoiMergeResult ApplyAutomaticRois(OpenSpectrum document,PeakSearchResult result,bool replace)
+    {
+        if(replace)
+        {
+            foreach(var range in document.AutomaticRois.Keys.ToArray())document.Ranges.Remove(range);
+            document.AutomaticRois.Clear();document.AutomaticSearchRevisions.Clear();
+        }
+        var merge=PeakSearch.Merge(result.Rois,document.Ranges);
+        foreach(var roi in merge.Accepted){document.Ranges.Add(roi.Range);document.AutomaticRois[roi.Range]=roi;document.AutomaticSearchRevisions[roi.Range]=document.Session.Revision;}
+        return merge;
+    }
+    private void CancelPeakClick(object sender,RoutedEventArgs e)=>peakCancellation?.Cancel();
+    private void SelectedRoiChanged(object sender,SelectionChangedEventArgs e)
+    {
+        if(!restoringView&&!updatingRows&&RoiGrid.SelectedItem is RoiRow row){RoiStart.Text=row.Result.Range.Start.ToString();RoiEnd.Text=row.Result.Range.End.ToString();}
+    }
+    private void EditRoiClick(object sender,RoutedEventArgs e)=>Execute(()=>
+    {
+        if(session is null||active is null||RoiGrid.SelectedItem is not RoiRow row)throw new CnfException("Chọn một ROI trong bảng trước.");
+        if(!int.TryParse(RoiStart.Text,out int start)||!int.TryParse(RoiEnd.Text,out int end)||start<0||end<start||end>=session.Values.Length)throw new CnfException("Giới hạn ROI không hợp lệ.");
+        var next=new RoiRange(start,end);if(ranges.Any(r=>r!=row.Result.Range&&r==next))throw new CnfException("ROI này đã tồn tại.");
+        int index=ranges.IndexOf(row.Result.Range);ranges[index]=next;active.AutomaticRois.Remove(row.Result.Range);active.AutomaticSearchRevisions.Remove(row.Result.Range);Refit();RoiGrid.SelectedItem=rows.FirstOrDefault(r=>r.Result.Range==next);
+        Status.Text="Đã chỉnh ROI thủ công và tính lại. Dò lại sẽ giữ ROI này.";
+    });
     private void ApplyCalibrationClick(object sender,RoutedEventArgs e)=>Execute(ApplyCalibration);
     private void ApplyCalibration()
     {
@@ -304,8 +401,8 @@ public partial class MainWindow : Window
         AddRoi(a,b);
     });
     private void RemoveRoiClick(object sender,RoutedEventArgs e)
-    { if(RoiGrid.SelectedItem is RoiRow row){ranges.Remove(row.Result.Range);Refit();} }
-    private void ClearRoisClick(object sender,RoutedEventArgs e) { ranges.Clear();rows.Clear();Plot.Rois=[];Plot.InvalidateVisual(); }
+    { if(RoiGrid.SelectedItem is RoiRow row){ranges.Remove(row.Result.Range);active?.AutomaticRois.Remove(row.Result.Range);active?.AutomaticSearchRevisions.Remove(row.Result.Range);Refit();} }
+    private void ClearRoisClick(object sender,RoutedEventArgs e) { if(ReferenceEquals(active,peakDocument))peakCancellation?.Cancel();ranges.Clear();active?.AutomaticRois.Clear();active?.AutomaticSearchRevisions.Clear();rows.Clear();Plot.Rois=[];Plot.DetectedPeaks=[];Plot.InvalidateVisual(); }
     private void ExportRoisClick(object sender,RoutedEventArgs e)=>Execute(()=>
     {
         if(session is null||rows.Count==0)throw new CnfException("Thêm ROI trước khi xuất.");

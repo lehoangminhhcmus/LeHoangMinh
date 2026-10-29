@@ -11,6 +11,7 @@ public sealed class SpectrumPlot : FrameworkElement
     public Spectrum? Spectrum { get; set; }
     public double[]? Values { get; set; }
     public IReadOnlyList<RoiResult> Rois { get; set; } = [];
+    public IReadOnlyList<PeakCandidate> DetectedPeaks {get;set;}=[];
     public event Action<int,int>? RoiSelected;
     public bool EnergyAxis { get; set; }
     public bool LogScale { get; set; }
@@ -95,6 +96,13 @@ public sealed class SpectrumPlot : FrameworkElement
             double a=XPixel(roi.Range.Start-.5),b=XPixel(roi.Range.End+.5);
             dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(22,230,146,37)),null,new Rect(a,area.Top,Math.Max(0,b-a),area.Height));
             if(b>=area.Left && a<=area.Right) Text(dc,$"ROI {roiId}",new Point(Math.Max(area.Left,a)+3,area.Top+5),11);
+        }
+        var markerPen=new Pen(Brushes.DarkOrange,1){DashStyle=DashStyles.Dash};
+        foreach(var peak in DetectedPeaks.Where(p=>p.Channel>=left&&p.Channel<=right))
+        {
+            double px=XPixel(peak.Channel);
+            dc.DrawLine(markerPen,new Point(px,area.Top+23),new Point(px,area.Bottom));
+            Text(dc,$"ch {peak.Channel}",new Point(px+3,area.Top+20),10);
         }
         var geometry=new StreamGeometry();
         using(var ctx=geometry.Open())

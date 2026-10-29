@@ -14,6 +14,11 @@ public sealed class SpectrumViewState
     public string RoiEnd {get;set;}="100";
     public (double Left,double Right)? Viewport {get;set;}
     public RoiRange? SelectedRoi {get;set;}
+    public string PeakMinimumFwhm {get;set;}="3";
+    public string PeakMaximumFwhm {get;set;}="40";
+    public string PeakThreshold {get;set;}="5";
+    public string PeakPadding {get;set;}="3.5";
+    public bool ReplaceAutomatic {get;set;}=true;
 }
 public sealed class OpenSpectrum : INotifyPropertyChanged
 {
@@ -30,6 +35,8 @@ public sealed class OpenSpectrum : INotifyPropertyChanged
     public string? BackgroundPath {get;set;}
     public string ScaleMode {get;set;}="None";
     public List<RoiRange> Ranges {get;}=[];
+    public Dictionary<RoiRange,DetectedRoi> AutomaticRois {get;}=[];
+    public Dictionary<RoiRange,long> AutomaticSearchRevisions {get;}=[];
     public SpectrumViewState View {get;}=new();
     public OpenSpectrum(string path,byte[] bytes,Spectrum spectrum)
     {this.path=System.IO.Path.GetFullPath(path);OriginalBytes=bytes;Session=new(spectrum);View.Energy=spectrum.Calibration is not null;}

@@ -32,10 +32,14 @@ jobs:
           $exe = Resolve-Path windows/dist/app/GammaCNFReader.exe
           $out = Join-Path $env:RUNNER_TEMP 'gamma-ui-smoke'
           $process = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', "`"$env:RUNNER_TEMP/smoke.cnf`"", "`"$out`"") -PassThru
-          if (!$process.WaitForExit(60000)) { Stop-Process -Id $process.Id -Force; throw 'WPF smoke check timed out' }
+          if (!$process.WaitForExit(60000)) {
+            Stop-Process -Id $process.Id -Force
+            $detail = if (Test-Path "$out/ui-smoke-error.txt") { Get-Content "$out/ui-smoke-error.txt" -Raw } else { 'No error file' }
+            throw "WPF smoke check timed out: $detail"
+          }
           if ($process.ExitCode -ne 0 -or !(Test-Path "$out/ui-smoke-success.txt")) {
-            if (Test-Path "$out/ui-smoke-error.txt") { Get-Content "$out/ui-smoke-error.txt" }
-            throw 'WPF smoke check failed'
+            $detail = if (Test-Path "$out/ui-smoke-error.txt") { Get-Content "$out/ui-smoke-error.txt" -Raw } else { 'No success or error file' }
+            throw "WPF smoke check failed: $detail"
           }
           Get-Content "$out/ui-smoke-success.txt"
       - uses: actions/upload-artifact@v4

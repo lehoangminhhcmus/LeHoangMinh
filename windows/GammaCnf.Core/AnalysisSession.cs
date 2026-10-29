@@ -7,6 +7,7 @@ public enum BackgroundTimeBasis { LiveTime, RealTime }
 public sealed class AnalysisSession
 {
     public Spectrum Sample { get; private set; }
+    public long Revision {get;private set;}
     public Spectrum? Background { get; private set; }
     public double Scale { get; private set; }
     public BackgroundTimeBasis? TimeBasis { get; private set; }
@@ -66,6 +67,7 @@ public sealed class AnalysisSession
     public void ClearBackground() { Background=null;Scale=0;TimeBasis=null;ChannelOnlyBackground=false;Recalculate(); }
     private void Recalculate()
     {
+        Revision++;
         Values=new double[Sample.Counts.Length];Variances=new double[Values.Length];
         for(int i=0;i<Values.Length;i++)
         {

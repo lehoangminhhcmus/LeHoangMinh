@@ -1,4 +1,4 @@
-# Gamma CNF Reader 0.5.0 — C# / WPF
+# Gamma CNF Reader 0.6.0 — C# / WPF
 
 App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF`. Bản self-contained không cần Python, Genie 2000 hay cài .NET riêng. Mở file, kéo thả hoặc truyền đường dẫn qua dòng lệnh.
 
@@ -6,7 +6,7 @@ App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.C
 
 Tải bộ cài tại [Releases](https://github.com/lehoangminhhcmus/LeHoangMinh/releases). Chạy `GammaCNFReader-CSharp-Setup.exe`, hoặc giải nén ZIP và chạy `GammaCNFReader.exe`. `Install.cmd` cài theo người dùng và tạo shortcut/mục gỡ cài đặt; không cần Administrator. Đóng app trước khi cập nhật/gỡ.
 
-Bản v0.5.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
+Bản v0.6.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
 
 ## Chuyển giữa các phổ đang mở (mới ở v0.5.0)
 
@@ -63,6 +63,29 @@ App fit **một Gaussian tích phân theo từng kênh + nền tuyến tính** b
 Vùng ROI được tô nền và mô hình fit có đường đỏ. Thay hiệu chuẩn/phông sẽ tính lại tất cả ROI. **Xuất tất cả ROI ra TXT…** xuất báo cáo UTF-8 phân tách bằng tab, có cả ROI thất bại, đường dẫn mẫu/phông, thời gian sống, α, chế độ chuẩn hóa, hệ số hiệu chuẩn và mô tả phương pháp. ROI giữ riêng khi chuyển phổ trong phiên; xuất TXT trước khi đóng phổ hoặc đóng app.
 
 **Giới hạn:** mô hình đơn Gaussian không tách multiplet/đỉnh chồng, không mô tả tailing phức tạp; fit WLS và sai số chỉ là xấp xỉ, đặc biệt với số đếm thấp. Không tự nhận diện đồng vị hoặc tính hoạt độ. Cần kiểm chứng với phần mềm phân tích chuẩn trước khi dùng kết quả chính thức. Chưa đối chiếu với Genie 2000.
+
+## Dò đỉnh và tạo ROI tự động (mới ở v0.6.0)
+
+Vào tab **ROI / Gaussian**, bấm **Dò đỉnh và tạo ROI tự động**. App dò toàn bộ **phổ đang chọn**, dùng số đếm gốc khi chưa trừ phông và dùng net/variance đã lan truyền khi có phông. Không cần chuẩn năng lượng để dò theo kênh. Dữ liệu gốc không bị làm trơn hoặc ghi lại; việc làm trơn chỉ dùng nội bộ để tìm ứng viên.
+
+Thiết lập mặc định:
+
+- FWHM tìm kiếm **3–40 kênh**; có thể chỉnh trong khoảng 2–256 kênh theo độ phân giải detector và số kênh phổ.
+- Ngưỡng **SNR bộ lọc = 5**; có thể chỉnh 3–30. Giảm ngưỡng có thể tìm thêm đỉnh yếu nhưng cũng tăng ứng viên giả.
+- Nửa rộng ROI khoảng **3,5 sigma** từ độ rộng ước lượng, có phần nền hai bên; có thể chọn 2,5–6 sigma. Giới hạn ROI được chặn trong phổ và có ít nhất 9 kênh để thử fit.
+
+Thuật toán quét Gaussian nhiều độ rộng sau khi loại thành phần nền hằng/tuyến tính cục bộ khỏi kernel, dùng variance của số đếm để đánh giá SNR, loại phát hiện lặp giữa các độ rộng rồi ước lượng biên ROI. **SNR này không phải p-value hoặc kiểm định có hiệu chỉnh thử nhiều lần.** Nền cong, cạnh Compton, đuôi đỉnh và nhiễu có thể tạo ứng viên giả; đỉnh quá yếu/hẹp/rộng hoặc không tách được vẫn có thể bị bỏ sót.
+
+Vạch đứt màu cam đánh dấu kênh ứng viên, nền ROI thể hiện vùng đã tạo và đường đỏ là Gaussian fit khi hợp lệ. Cột **Nguồn ROI** phân biệt Tự dò/Thủ công; rê chuột vào trạng thái để xem tham số và các kênh ứng viên.
+
+- Luôn **giữ ROI thủ công**; đề xuất chồng ROI đang có sẽ bị bỏ và được đếm trong thông báo.
+- Mặc định **Thay ROI tự động cũ** khi dò lại; bỏ chọn để chỉ bổ sung các vùng chưa chồng. Không tạo trùng ROI khi bấm dò nhiều lần. Giới hạn 100 ứng viên và 100 ROI mỗi phổ; chạm giới hạn được thông báo.
+- Các ROI tự động chồng nhau được **gom nhóm** để tránh tính đếm lặp giữa các ROI tự động. Nhóm có nhiều ứng viên chỉ xuất tổng gốc/phông/net, **không tự công nhận fit một Gaussian**. Đây là nhóm ứng viên gần nhau, không phải kết quả tách multiplet. Có thể chỉnh/tách thủ công nếu biết mô hình phù hợp.
+- Chọn dòng ROI trong bảng để nạp hai giới hạn vào ô nhập. Chỉnh rồi bấm **Cập nhật giới hạn ROI đang chọn** để tính lại; ROI đã chỉnh trở thành thủ công và được giữ khi dò lại. Có thể xóa từng ROI hoặc tất cả.
+- Dò chạy nền; có nút **Hủy dò**. Có thể chuyển sang phổ khác trong lúc dò: kết quả chỉ áp dụng cho phổ đã khởi chạy, nếu phổ đó vẫn mở và dữ liệu chưa đổi. Đóng phổ hoặc xóa toàn bộ ROI sẽ hủy tác vụ tương ứng; hủy không thay ROI trước đó.
+- Nếu thay hiệu chuẩn/phông trong lúc dò, kết quả cũ bị bỏ. Nếu thay sau khi đã dò, giữ vùng cũ và tính lại thống kê/fit nhưng đánh dấu thông tin dò là cũ; bấm dò lại để cập nhật. Tham số dò và nguồn ROI giữ riêng theo từng phổ trong phiên.
+
+TXT bổ sung `Origin` và `Detection_note` chứa phương pháp, ngưỡng, độ rộng, kênh/SNR/FWHM ước lượng của ứng viên và cảnh báo nhóm/biên. Phân biệt FWHM **ước lượng để chọn ROI** với FWHM **fit Gaussian** trong bảng định lượng. Chỉ ROI fit đạt mới có thể dùng cho chuẩn hiệu suất/hoạt độ; app không tự nhận diện đồng vị.
 
 ## Chuẩn hiệu suất đỉnh toàn phần
 
@@ -136,9 +159,9 @@ Có file mẫu riêng:
 dotnet run --project windows/GammaCnf.Checks -- "D:\Data\Test_spc.cnf"
 ```
 
-127 kiểm tra với file mẫu: đọc CNF, ghi/đọc lại hiệu chuẩn, bảo toàn byte/số đếm, backup/ghi nguyên tử, từ chối file bị đổi bên ngoài, kiểm tra căn chỉnh phông, bảo toàn net âm và variance, khôi phục tham số Gaussian có/không nhiễu và nền nghiêng, cảnh báo đỉnh chồng, từ chối ROI lỗi, xuất CSV/TXT, hiệu suất GLS, phân rã, covariance chung, JSON nháp/đầy đủ, hoạt độ/Bq/kg và các kiểm tra từ chối sai điều kiện. Không đưa file mẫu người dùng vào repository. Không có file mẫu thì chạy 118 kiểm tra chung và báo nhóm mẫu NOT RUN.
+155 kiểm tra với file mẫu: đọc CNF, ghi/đọc lại hiệu chuẩn, bảo toàn byte/số đếm, backup/ghi nguyên tử, từ chối file bị đổi bên ngoài, kiểm tra căn chỉnh phông, bảo toàn net âm và variance, khôi phục tham số Gaussian có/không nhiễu và nền nghiêng, cảnh báo đỉnh chồng, từ chối ROI lỗi, xuất CSV/TXT, hiệu suất GLS, phân rã, covariance chung, JSON nháp/đầy đủ, hoạt độ/Bq/kg và các kiểm tra từ chối sai điều kiện. Không đưa file mẫu người dùng vào repository. Không có file mẫu thì chạy 144 kiểm tra chung và báo nhóm mẫu NOT RUN.
 
-CI Windows xây dựng app, kiểm tra cú pháp script cài, chạy kiểm tra dữ liệu và smoke test WPF với CNF giả lập: mở phổ, hiệu chuẩn, trừ phông, ROI, vẽ log/keV và xuất CSV/TXT/PNG; tạo đường hiệu suất giả lập bằng giao diện, lưu/đọc JSON, vẽ đường chuẩn/phần dư và tính hoạt độ; mở/chuyển/đóng nhiều phổ, giữ riêng phông/ROI/bản nháp hệ số/log/zoom, tính lại tỷ số thời gian theo từng phổ và kiểm tra các tổng ROI. Kết quả/ảnh nằm trong artifact `WPF-smoke-evidence`. Đây không thay thế kiểm tra thủ công trên PC của bạn hoặc kiểm thử cài/gỡ.
+CI Windows xây dựng app, kiểm tra cú pháp script cài, chạy kiểm tra dữ liệu và smoke test WPF với CNF giả lập: mở phổ, hiệu chuẩn, trừ phông, ROI, vẽ log/keV và xuất CSV/TXT/PNG; tạo đường hiệu suất giả lập bằng giao diện, lưu/đọc JSON, vẽ đường chuẩn/phần dư và tính hoạt độ; mở/chuyển/đóng nhiều phổ, giữ riêng phông/ROI/bản nháp hệ số/log/zoom, tính lại tỷ số thời gian theo từng phổ và kiểm tra các tổng ROI; dò đỉnh bất đồng bộ, tạo/fit ROI, dò lặp, giữ ROI thủ công, chỉnh ROI, hủy tác vụ, cảnh báo dữ liệu đã đổi và xuất nguồn gốc ROI. Kết quả/ảnh nằm trong artifact `WPF-smoke-evidence`. Đây không thay thế kiểm tra thủ công trên PC của bạn hoặc kiểm thử cài/gỡ.
 
 Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo portable exe và Setup.exe. GitHub Actions kiểm tra khi push main; tag `v*` sẽ phát hành bản Latest nếu các kiểm tra đạt.
 

@@ -7,7 +7,7 @@ public sealed record RoiRange(int Start,int End);
 public sealed record RoiResult(RoiRange Range,bool Success,string Status,double NetRoiSum,
     double? PeakArea=null,double? AreaError=null,double? AreaWithinRoi=null,double? Centroid=null,
     double? CentroidError=null,double? FwhmChannels=null,double? FwhmKeV=null,double? EnergyKeV=null,
-    double? ReducedChiSquare=null,double[]? Parameters=null,RoiCountSummary? Counts=null)
+    double? ReducedChiSquare=null,double[]? Parameters=null,RoiCountSummary? Counts=null,string Origin="Manual",string DetectionNote="")
 {
     public double Model(double channel) => Parameters is { } p ? RoiAnalysis.Model(p,channel,(Range.Start+Range.End)/2.0) : double.NaN;
 }
@@ -124,7 +124,7 @@ public static class RoiAnalysis
         using var w=new StreamWriter(path,false,new UTF8Encoding(true));
         string F(double? x)=>x?.ToString("G12",CultureInfo.InvariantCulture)??"NA";
         string Clean(string s)=>s.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
-        w.WriteLine("Gamma CNF Reader 0.5.0 — ROI report (UTF-8, tab separated)");
+        w.WriteLine("Gamma CNF Reader 0.6.0 — ROI report (UTF-8, tab separated)");
         w.WriteLine("Exported_UTC\t"+DateTime.UtcNow.ToString("O",CultureInfo.InvariantCulture));
         w.WriteLine("Sample\t"+Clean(samplePath));w.WriteLine("Sample_live_seconds\t"+F(session.Sample.LiveTime));
         w.WriteLine("Background\t"+Clean(backgroundPath??"None"));w.WriteLine("Background_live_seconds\t"+F(session.Background?.LiveTime));
@@ -135,7 +135,7 @@ public static class RoiAnalysis
         w.WriteLine("Method\tWeighted least squares: bin-integrated single Gaussian + linear continuum. Channels start at 0; ROI bounds inclusive.");
         w.WriteLine("Variance\tsample + scale^2 * background; floor 1 for fitting. Scale treated as exact. Errors: approximate 1-sigma covariance; low-count spectra may need Poisson methods.");
         w.WriteLine("Peak_area\tFull fitted Gaussian area; Area_in_ROI excludes fitted tails outside ROI. Gross_ROI_sum is the raw sample sum; scaled background and net sums are direct inclusive channel sums with no continuum removal. Net_ROI_sum includes residual continuum. Unresolved multiplets are not separated.");
-        w.WriteLine("ID\tStart_channel\tEnd_channel\tSuccess\tNet_ROI_sum\tPeak_area\tArea_1sigma\tArea_in_ROI\tCentroid_channel\tCentroid_1sigma\tEnergy_keV\tFWHM_channel\tFWHM_keV\tChi2_per_dof\tStatus\tGross_ROI_sum\tScaled_background_ROI_sum\tNet_ROI_sigma");
-        int id=0;foreach(var r in results)w.WriteLine(string.Join("\t",++id,r.Range.Start,r.Range.End,r.Success,F(r.NetRoiSum),F(r.PeakArea),F(r.AreaError),F(r.AreaWithinRoi),F(r.Centroid),F(r.CentroidError),F(r.EnergyKeV),F(r.FwhmChannels),F(r.FwhmKeV),F(r.ReducedChiSquare),Clean(r.Status),r.Counts?.Gross.ToString(CultureInfo.InvariantCulture)??"NA",F(r.Counts?.ScaledBackground),F(r.Counts?.NetSigma)));
+        w.WriteLine("ID\tStart_channel\tEnd_channel\tSuccess\tNet_ROI_sum\tPeak_area\tArea_1sigma\tArea_in_ROI\tCentroid_channel\tCentroid_1sigma\tEnergy_keV\tFWHM_channel\tFWHM_keV\tChi2_per_dof\tStatus\tGross_ROI_sum\tScaled_background_ROI_sum\tNet_ROI_sigma\tOrigin\tDetection_note");
+        int id=0;foreach(var r in results)w.WriteLine(string.Join("\t",++id,r.Range.Start,r.Range.End,r.Success,F(r.NetRoiSum),F(r.PeakArea),F(r.AreaError),F(r.AreaWithinRoi),F(r.Centroid),F(r.CentroidError),F(r.EnergyKeV),F(r.FwhmChannels),F(r.FwhmKeV),F(r.ReducedChiSquare),Clean(r.Status),r.Counts?.Gross.ToString(CultureInfo.InvariantCulture)??"NA",F(r.Counts?.ScaledBackground),F(r.Counts?.NetSigma),Clean(r.Origin),Clean(r.DetectionNote)));
     }
 }
