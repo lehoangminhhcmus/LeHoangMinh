@@ -29,8 +29,8 @@ public static class ActivityAnalysis
         double energy=request.Gamma.EnergyKeV;var estimate=profile.Evaluate(energy);
         double pgRel=request.Gamma.ProbabilitySigma/request.Gamma.Probability;
         string key=request.Gamma.Key(request.Nuclide);
-        var matching=profile.Definition.Points.Where(p=>p.Gamma.Key(p.Source.Nuclide)==key).ToArray();
-        if(matching.Any(p=>p.Gamma!=request.Gamma))throw new CnfException("Dữ liệu xác suất gamma của mẫu khác dữ liệu cùng vạch trong bộ chuẩn.");
+        var matching=key.Length==0?[]:profile.Definition.Points.Where(p=>p.Gamma.Key(p.Source.Nuclide)==key).ToArray();
+        if(matching.Any(p=>(p.Gamma with{OptionalMetadata=request.Gamma.OptionalMetadata})!=request.Gamma))throw new CnfException("Dữ liệu xác suất gamma của mẫu khác dữ liệu cùng vạch trong bộ chuẩn.");
         double covarianceTerm=matching.Length==0?0:2*profile.SharedLogResponse(energy,key)*pgRel;
         double baseVariance=Math.Pow(roi.AreaError.Value/roi.PeakArea.Value,2)+Math.Pow(estimate.Sigma/estimate.Value,2)+pgRel*pgRel+covarianceTerm+Math.Pow(request.CorrectionSigma/request.Correction,2);
         double Factor(double half,DateTimeOffset at)=>-Math.Log(RadioactiveDecay.AverageFactor(half,request.RealSeconds))+Math.Log(2)*(request.MeasuredAt-at).TotalDays/half;
@@ -58,33 +58,35 @@ public static class ActivityAnalysis
         if(specific.HasValue){Guard.Positive(specific.Value,"Bq/kg");Guard.Nonnegative(specificSigma!.Value,"Sai số Bq/kg");}
         return new(start,start*Math.Sqrt(vs),reported,reported*Math.Sqrt(vr),specific,specificSigma,estimate,
             RadioactiveDecay.AverageFactor(request.HalfLifeDays,request.RealSeconds),
-            "Sai số 1σ tuyến tính: diện tích ROI, covariance đường chuẩn, xác suất gamma (có tương quan nếu dùng cùng vạch/tham chiếu), bán rã (có tương quan khi cùng tham chiếu), K và khối lượng. Không tự hiệu chỉnh tự hấp thụ/trùng phùng tổng. Giả định tỷ lệ live/real đều theo thời gian; sai số thời điểm/live time chưa được cung cấp. Chưa gộp các vạch thành hoạt độ chung.");
+            "Sai số 1σ tuyến tính: diện tích ROI, covariance đường chuẩn, xác suất gamma (có tương quan nếu dùng cùng vạch/tham chiếu), bán rã (có tương quan khi cùng tham chiếu), K và khối lượng. Không tự hiệu chỉnh tự hấp thụ/trùng phùng tổng. Giả định tỷ lệ live/real đều theo thời gian; sai số thời điểm/live time chưa được cung cấp. Chưa gộp các vạch thành hoạt độ chung. "+profile.InputSummary);
     }
 }
 public static class EfficiencyReports
 {
     private static string F(double? x)=>x?.ToString("G12",CultureInfo.InvariantCulture)??"NA";
+    private static string OptionalValue(EfficiencyObservation o,string missingLabel,double value)=>o.MissingInputs?.Contains(missingLabel)==true?"NA":F(value);
     private static string Clean(string? s)=>(s??"").Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
     private static void ProfileHeader(StreamWriter w,EfficiencyProfile p)
     {
-        w.WriteLine("Gamma CNF Reader 0.6.0 — full-energy peak efficiency");
+        w.WriteLine("Gamma CNF Reader 0.8.0 — full-energy peak efficiency");
         w.WriteLine("Profile\t"+Clean(p.Definition.Name));w.WriteLine("Created\t"+p.Definition.CreatedAt.ToString("O"));
         var g=p.Definition.Geometry;
-        w.WriteLine($"Detector\t{Clean(g.Detector)}\nGeometry\t{Clean(g.Configuration)}\nDistance_mm\t{F(g.DistanceMm)}\nConfiguration_notes\t{Clean(g.Notes)}");
+        w.WriteLine($"Detector\t{Clean(g.Detector)}\nGeometry\t{Clean(g.Configuration)}\nDistance_mm\t{(g.DistanceSpecified?F(g.DistanceMm):"NA")}\nConfiguration_notes\t{Clean(g.Notes)}");
+        w.WriteLine("Input_completeness\t"+Clean(p.InputSummary));
         w.WriteLine("Model\tln(epsilon) = sum c_j [ln(E_keV/1000)]^j; generalized least squares, absolute efficiencies (fraction).");
         w.WriteLine("Coefficients\t"+string.Join("\t",p.Coefficients.Select(c=>F(c))));
         w.WriteLine($"Energy_range_keV\t{F(p.MinEnergy)}\t{F(p.MaxEnergy)}\nChi2_per_dof\t{F(p.ChiSquarePerDof)}");
         for(int i=0;i<p.Coefficients.Length;i++)w.WriteLine("Covariance_row_"+i+"\t"+string.Join("\t",Enumerable.Range(0,p.Coefficients.Length).Select(j=>F(p.Covariance[i,j]))));
-        w.WriteLine("Uncertainty\t1-sigma linearized log-space GLS. Shared source activity correlated; half-life and gamma correlated by nuclide/reference. ROI and supplied per-point correction errors treated as independent. Timing/live time assumed exact. Reused-background or shared-correction covariance between observations is not modeled. No extrapolation.");
+        w.WriteLine("Uncertainty\t1-sigma linearized log-space GLS. Source activity correlated only for explicit source IDs (measurement-scoped for activity-at-measurement mode); auto-ID activity errors treated as independent. Half-life and gamma correlated only by known identity/reference; unidentified gamma errors independent. ROI and supplied per-point correction errors treated as independent. Timing/live time assumed exact. Reused-background or shared-correction covariance between observations is not modeled. No extrapolation.");
     }
     public static void Calibration(string path,EfficiencyProfile p)
     {
         using var w=new StreamWriter(path,false,new UTF8Encoding(true));ProfileHeader(w,p);
-        w.WriteLine("ID\tSource_ID\tNuclide\tCertificate\tActivity_Bq\tActivity_sigma\tCertificate_U_Bq\tCoverage_k\tRef_date\tHalf_life_days\tHalf_life_sigma\tHalf_life_reference\tMeasurement_date\tLive_s\tReal_s\tEnergy_keV\tPg\tPg_sigma\tNuclear_reference\tArea\tArea_sigma\tEpsilon\tEpsilon_sigma\tFitted\tResidual_log_sigma\tSpectrum\tBackground\tBackground_scale\tROI_start\tROI_end\tMeasurement_ID\tStandard_peak_K\tStandard_K_sigma\tStandard_K_notes");
+        w.WriteLine("ID\tSource_ID\tNuclide\tCertificate\tActivity_Bq\tActivity_sigma\tCertificate_U_Bq\tCoverage_k\tRef_date\tHalf_life_days\tHalf_life_sigma\tHalf_life_reference\tMeasurement_date\tLive_s\tReal_s\tEnergy_keV\tPg\tPg_sigma\tNuclear_reference\tArea\tArea_sigma\tEpsilon\tEpsilon_sigma\tFitted\tResidual_log_sigma\tSpectrum\tBackground\tBackground_scale\tROI_start\tROI_end\tMeasurement_ID\tStandard_peak_K\tStandard_K_sigma\tStandard_K_notes\tActivity_basis\tMissing_inputs");
         int id=0;foreach(var o in p.Definition.Points)
         {
             var fitted=p.Evaluate(o.Gamma.EnergyKeV);
-            w.WriteLine(string.Join("\t",++id,Clean(o.Source.Id),Clean(o.Source.Nuclide),Clean(o.Source.Certificate),F(o.Source.ActivityBq),F(o.Source.ActivitySigmaBq),F(o.Source.ActivitySigmaBq*o.Source.CoverageFactor),F(o.Source.CoverageFactor),o.Source.ReferenceDate.ToString("O"),F(o.Source.HalfLifeDays),F(o.Source.HalfLifeSigmaDays),Clean(o.Source.HalfLifeReference),o.MeasuredAt.ToString("O"),F(o.LiveSeconds),F(o.RealSeconds),F(o.Gamma.EnergyKeV),F(o.Gamma.Probability),F(o.Gamma.ProbabilitySigma),Clean(o.Gamma.Reference),F(o.Area),F(o.AreaSigma),F(o.Efficiency),F(o.Efficiency*o.TotalRelativeSigma),F(fitted.Value),F(p.ResidualSigma[id-1]),Clean(o.SpectrumPath),Clean(o.BackgroundPath),F(o.BackgroundScale),o.RoiStart,o.RoiEnd,Clean(o.MeasurementId),F(o.Correction),F(o.CorrectionSigma),Clean(o.CorrectionNotes)));
+            w.WriteLine(string.Join("\t",++id,Clean(o.Source.Id),Clean(o.Source.Nuclide),Clean(o.Source.Certificate),F(o.Source.ActivityBq),OptionalValue(o,"sai số hoạt độ nguồn chưa cung cấp",o.Source.ActivitySigmaBq),OptionalValue(o,"sai số hoạt độ nguồn chưa cung cấp",o.Source.ActivitySigmaBq*o.Source.CoverageFactor),F(o.Source.CoverageFactor),(o.Source.ActivityAtMeasurement?"NA":o.Source.ReferenceDate.ToString("O")),(o.Source.HalfLifeDays==0?"NA":F(o.Source.HalfLifeDays)),OptionalValue(o,"sai số bán rã chưa cung cấp",o.Source.HalfLifeSigmaDays),Clean(o.Source.HalfLifeReference),(o.MeasuredAt==DateTimeOffset.MinValue?"NA":o.MeasuredAt.ToString("O")),F(o.LiveSeconds),(o.RealSeconds==0?"NA":F(o.RealSeconds)),F(o.Gamma.EnergyKeV),F(o.Gamma.Probability),OptionalValue(o,"sai số xác suất gamma chưa cung cấp",o.Gamma.ProbabilitySigma),Clean(o.Gamma.Reference),F(o.Area),F(o.AreaSigma),F(o.Efficiency),F(o.Efficiency*o.TotalRelativeSigma),F(fitted.Value),F(p.ResidualSigma[id-1]),Clean(o.SpectrumPath),Clean(o.BackgroundPath),F(o.BackgroundScale),o.RoiStart,o.RoiEnd,Clean(o.MeasurementId),F(o.Correction),OptionalValue(o,"sai số K chưa cung cấp",o.CorrectionSigma),Clean(o.CorrectionNotes),o.Source.ActivityAtMeasurement?"Activity at measurement start":"Certificate decay correction",Clean(string.Join("; ",o.MissingInputs??[]))));
         }
     }
     public static void Activity(string path,EfficiencyProfile p,RoiResult roi,ActivityRequest request,ActivityResult result,string spectrum,string? background,double backgroundScale)

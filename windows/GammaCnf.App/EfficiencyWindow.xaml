@@ -12,44 +12,54 @@
    <StackPanel>
     <TextBlock x:Name="SpectrumLabel" FontWeight="SemiBold"/>
     <WrapPanel Margin="0,6,0,0">
-     <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Detector / số máy"/><TextBox x:Name="DetectorText"/></StackPanel>
-     <StackPanel Width="210" Margin="0,0,10,0"><TextBlock Text="Mã hình học / cấu hình mẫu"/><TextBox x:Name="GeometryText"/></StackPanel>
-     <StackPanel Width="100" Margin="0,0,10,0"><TextBlock Text="Khoảng cách (mm)"/><TextBox x:Name="DistanceText"/></StackPanel>
-     <StackPanel Width="290" Margin="0,0,10,0"><TextBlock Text="Ghi chú: bình chứa, thể tích, nền mẫu…"/><TextBox x:Name="GeometryNotes"/></StackPanel>
-     <StackPanel Width="230"><TextBlock Text="Tên bộ chuẩn"/><TextBox x:Name="ProfileName"/></StackPanel>
+     <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Live time (s) * — từ CNF"/><TextBox x:Name="LiveText"/></StackPanel>
+     <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Real time (s; tùy chọn)"/><TextBox x:Name="RealText"/></StackPanel>
+     <StackPanel Width="520"><TextBlock Text="ROI đã fit của phổ đang mở"/><ComboBox x:Name="RoiChoice" DisplayMemberPath="Label" Margin="0,3,0,8"/></StackPanel>
     </WrapPanel>
-    <WrapPanel>
-     <StackPanel Width="310" Margin="0,0,10,0"><TextBlock Text="Bắt đầu đo ISO + múi giờ (vd +07:00)"/><TextBox x:Name="MeasuredAt" ToolTip="Ví dụ 2026-10-29T10:30:00+07:00. Ngày CNF không có múi giờ: hãy bổ sung đúng offset."/></StackPanel>
-     <StackPanel Width="115" Margin="0,0,10,0"><TextBlock Text="Live time (s)"/><TextBox x:Name="LiveText"/></StackPanel>
-     <StackPanel Width="115" Margin="0,0,10,0"><TextBlock Text="Real time (s)"/><TextBox x:Name="RealText"/></StackPanel>
-     <StackPanel Width="440"><TextBlock Text="ROI của phổ đang mở (cần fit đạt và có keV)"/><ComboBox x:Name="RoiChoice" DisplayMemberPath="Label" Margin="0,3,0,8"/></StackPanel>
-    </WrapPanel>
+
+    <Expander x:Name="GeometryDetails" Header="Thông tin bộ chuẩn / ngày giờ (tùy chọn khi nhập gọn)" IsExpanded="False" Margin="0,5,0,0">
+     <WrapPanel>
+      <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Detector / số máy (tùy chọn)"/><TextBox x:Name="DetectorText"/></StackPanel>
+      <StackPanel Width="210" Margin="0,0,10,0"><TextBlock Text="Mã hình học (tùy chọn)"/><TextBox x:Name="GeometryText"/></StackPanel>
+      <StackPanel Width="100" Margin="0,0,10,0"><TextBlock Text="Khoảng cách mm (tùy chọn)"/><TextBox x:Name="DistanceText"/></StackPanel>
+      <StackPanel Width="290" Margin="0,0,10,0"><TextBlock Text="Ghi chú cấu hình (tùy chọn)"/><TextBox x:Name="GeometryNotes"/></StackPanel>
+      <StackPanel Width="230"><TextBlock Text="Tên bộ chuẩn (tự đặt nếu trống)"/><TextBox x:Name="ProfileName"/></StackPanel>
+      <StackPanel Width="310"><TextBlock Text="Đầu đo ISO + múi giờ (khi quy đổi ngày)"/><TextBox x:Name="MeasuredAt"/></StackPanel>
+     </WrapPanel>
+    </Expander>
    </StackPanel>
   </Border>
   <TabControl x:Name="Tabs" Grid.Row="2">
    <TabItem Header="1. Nguồn và điểm chuẩn">
     <Grid Margin="10"><Grid.ColumnDefinitions><ColumnDefinition Width="370"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
      <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,0,14,0">
-      <TextBlock Text="Thông tin chứng chỉ nguồn chuẩn" FontWeight="SemiBold" FontSize="16"/>
-      <TextBlock Text="Không kèm số liệu hạt nhân giả định. Nhập từ chứng chỉ và tài liệu đã kiểm chứng. Mọi sai số là 1σ; nhập 0 chỉ khi chấp nhận coi đại lượng đó chính xác." Margin="0,7" Foreground="#9A5900"/>
-      <TextBlock Text="Mã nguồn duy nhất (mỗi đồng vị/chứng chỉ)"/><TextBox x:Name="SourceId"/>
-      <TextBlock Text="Đồng vị"/><TextBox x:Name="SourceNuclide"/>
-      <TextBlock Text="Chứng chỉ / số hiệu, đơn vị cấp"/><TextBox x:Name="CertificateText"/>
-      <TextBlock Text="Hoạt độ tại ngày chứng nhận (Bq)"/><TextBox x:Name="ActivityText"/>
-      <TextBlock Text="Độ không đảm bảo hoạt độ trên chứng chỉ (%)"/><TextBox x:Name="ActivitySigmaText"/>
-      <TextBlock Text="Hệ số phủ k (1 = 1σ; U với k=2 thì nhập 2)"/><TextBox x:Name="ActivityCoverageText" Text="1"/>
-      <TextBlock Text="Ngày chứng nhận ISO + múi giờ"/><TextBox x:Name="ReferenceDateText"/>
-      <TextBlock Text="Chu kỳ bán rã (ngày)"/><TextBox x:Name="HalfLifeText"/>
-      <TextBlock Text="Sai số bán rã 1σ (ngày)"/><TextBox x:Name="HalfLifeSigmaText"/>
-      <TextBlock Text="Ghép ROI với vạch gamma chuẩn" FontWeight="SemiBold" FontSize="16" Margin="0,12,0,8"/>
-      <TextBlock Text="Năng lượng vạch (keV)"/><TextBox x:Name="GammaEnergy"/>
-      <TextBlock Text="Xác suất phát gamma (%)"/><TextBox x:Name="GammaProbability"/>
-      <TextBlock Text="Sai số xác suất 1σ (điểm phần trăm)"/><TextBox x:Name="GammaSigma"/>
-      <TextBlock Text="Nguồn dữ liệu Pγ và bán rã / phiên bản"/><TextBox x:Name="NuclearReference"/>
-      <TextBlock Text="K nhân diện tích đỉnh chuẩn (1 = không hiệu chỉnh)"/><TextBox x:Name="StandardCorrection" Text="1"/>
-      <TextBlock Text="Sai số tuyệt đối của K (1σ)"/><TextBox x:Name="StandardCorrectionSigma" Text="0"/>
-      <TextBlock Text="Căn cứ K (tự hấp thụ/trùng phùng… nếu có)"/><TextBox x:Name="StandardCorrectionNotes"/>
-      <Button Content="Thêm ROI đã chọn làm điểm chuẩn" Click="AddPointClick" Margin="0,8,0,8"/>
+
+      <TextBlock Text="Nhập gọn để tính hiệu suất" FontWeight="SemiBold" FontSize="16"/>
+      <TextBlock Text="Chọn ROI phía trên; diện tích và live time lấy từ phổ. Chỉ cần hoạt độ nguồn và xác suất gamma. Để trống các thông tin bổ sung nếu chưa có." Margin="0,7"/>
+      <TextBlock x:Name="ActivityBasisLabel" Text="Hoạt độ tại đầu phép đo (Bq) *"/><TextBox x:Name="ActivityText"/>
+      <TextBlock Text="Năng lượng vạch keV (trống = tâm ROI)"/><TextBox x:Name="GammaEnergy"/>
+      <TextBlock Text="Xác suất phát gamma (%) *"/><TextBox x:Name="GammaProbability"/>
+      <TextBlock Text="Mặc định ε = Nđỉnh / (A × live time × Pγ). A đã quy đổi về đầu đo; không tự giảm hoạt độ lần nữa. Nếu không nhập bán rã, chưa hiệu chỉnh phân rã trong phép đo." Foreground="#9A5900" Margin="0,5,0,8"/>
+      <CheckBox x:Name="UseCertificateDecay" Content="Tự quy đổi A từ ngày chứng nhận" Checked="ActivityModeChanged" Unchecked="ActivityModeChanged" Margin="0,5,0,10"/>
+      <Expander x:Name="SourceDetails" Header="Thông tin bổ sung / phân rã / sai số" IsExpanded="False">
+       <StackPanel>
+        <TextBlock Text="Mọi ô bên dưới đều có thể để trống, trừ dữ liệu cần cho lựa chọn hiệu chỉnh phân rã. Sai số trống được đánh dấu chưa cung cấp; ± chỉ gồm các thành phần đã có." TextWrapping="Wrap" Foreground="#9A5900" Margin="0,8"/>
+        <TextBlock Text="Mã nguồn (trống = mã nội bộ theo phép đo)"/><TextBox x:Name="SourceId"/>
+        <TextBlock Text="Đồng vị (tùy chọn)"/><TextBox x:Name="SourceNuclide"/>
+        <TextBlock Text="Chứng chỉ / đơn vị cấp (tùy chọn)"/><TextBox x:Name="CertificateText"/>
+        <TextBlock Text="Sai số hoạt độ nguồn (%) — trống = chưa có"/><TextBox x:Name="ActivitySigmaText"/>
+        <TextBlock Text="Hệ số phủ k (trống = 1; sai số đã là 1σ)"/><TextBox x:Name="ActivityCoverageText"/>
+        <TextBlock Text="Ngày chứng nhận ISO + múi giờ (khi tự quy đổi A)"/><TextBox x:Name="ReferenceDateText"/>
+        <TextBlock Text="Bán rã (ngày; trống = không hiệu chỉnh phân rã)"/><TextBox x:Name="HalfLifeText"/>
+        <TextBlock Text="Sai số bán rã 1σ (ngày; tùy chọn)"/><TextBox x:Name="HalfLifeSigmaText"/>
+        <TextBlock Text="Sai số Pγ 1σ (điểm phần trăm; tùy chọn)"/><TextBox x:Name="GammaSigma"/>
+        <TextBlock Text="Tham chiếu Pγ / bán rã (tùy chọn)"/><TextBox x:Name="NuclearReference"/>
+        <TextBlock Text="K nhân diện tích đỉnh (trống = 1)"/><TextBox x:Name="StandardCorrection"/>
+        <TextBlock Text="Sai số tuyệt đối K 1σ (tùy chọn)"/><TextBox x:Name="StandardCorrectionSigma"/>
+        <TextBlock Text="Căn cứ K (tùy chọn, nên ghi khi có hiệu chỉnh)"/><TextBox x:Name="StandardCorrectionNotes"/>
+       </StackPanel>
+      </Expander>
+      <Button Content="Thêm ROI đã chọn làm điểm chuẩn" Click="AddPointClick" Margin="0,12,0,8"/>
      </StackPanel></ScrollViewer>
      <Grid Grid.Column="1"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <DataGrid x:Name="PointsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single">
@@ -69,7 +79,7 @@
    </TabItem>
    <TabItem Header="2. Đường chuẩn và phần dư">
     <Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-     <WrapPanel><TextBlock Text="Bậc đa thức ln ε theo ln(E/1000 keV):" VerticalAlignment="Center"/><ComboBox x:Name="DegreeChoice" Width="65" SelectedIndex="1" Margin="10,0"><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/></ComboBox><Button Content="Fit đường chuẩn" Click="FitClick"/></WrapPanel>
+     <WrapPanel><TextBlock Text="Bậc đa thức ln ε theo ln(E/1000 keV):" VerticalAlignment="Center"/><ComboBox x:Name="DegreeChoice" Width="65" SelectedIndex="0" Margin="10,0"><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/></ComboBox><Button Content="Fit đường chuẩn" Click="FitClick"/></WrapPanel>
      <TextBlock x:Name="FitSummary" Grid.Row="1" Text="Bậc 1–3 cần tối thiểu bậc+2 năng lượng khác nhau. Nên có nhiều điểm phân bố đều trong miền sử dụng." Margin="0,10"/>
      <local:EfficiencyPlot x:Name="CurvePlot" Grid.Row="2"/>
     </Grid>
@@ -99,6 +109,6 @@
     </Grid>
    </TabItem>
   </TabControl>
-  <TextBlock x:Name="StatusText" Grid.Row="3" Text="Chưa có đường chuẩn thực tế. Dữ liệu nguồn và chứng chỉ phải do người dùng cung cấp." Margin="0,10,0,0" Foreground="#52657B"/>
+  <TextBlock x:Name="StatusText" Grid.Row="3" Text="Nhập gọn: chọn ROI → hoạt độ tại đầu đo (Bq) → xác suất gamma (%) → thêm điểm. Các mục bổ sung được phép để trống." Margin="0,10,0,0" Foreground="#52657B"/>
  </Grid>
 </Window>

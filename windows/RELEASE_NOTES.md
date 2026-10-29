@@ -1,34 +1,32 @@
-**Gamma CNF Reader v0.7.0 — Windows + macOS**, miễn phí cho sinh viên, giảng viên
-và phòng thí nghiệm. Không cần tài khoản, kích hoạt, thuê bao hay cài .NET/Python.
+# Gamma CNF Reader v0.8.0 — chuẩn hiệu suất nhập gọn
 
-| Máy | File |
-| --- | --- |
-| Windows 10/11 x64 | `GammaCNFReader-CSharp-Setup.exe` hoặc ZIP portable |
-| macOS 14+ Apple Silicon (chip M) | `GammaCNFReader-macOS-osx-arm64.dmg` |
-| macOS 14+ Intel | `GammaCNFReader-macOS-osx-x64.dmg` |
+Windows 10/11 x64, macOS 14+ Apple Silicon và Intel; miễn phí như trước.
 
-Bản macOS mới dùng giao diện Avalonia và **dùng chung toàn bộ phần đọc/tính toán C#**
-với Windows: nhiều phổ, chuẩn năng lượng/lưu CNF có .bak, tự scale thời gian phông,
-dò đỉnh/tạo ROI, tổng số đếm và Gaussian/FWHM, chuẩn hiệu suất GLS/JSON, hoạt độ Bq/Bq/kg,
-xuất CSV/PNG/TXT. Windows giữ giao diện WPF và được nâng số phiên bản đồng bộ.
+- Mặc định chỉ chọn ROI đã fit, nhập **hoạt độ tại đầu phép đo (Bq)** và **Pγ (%)**.
+  Live time từ CNF; năng lượng bỏ trống dùng tâm ROI. Cơ bản ε=N/(A×t×Pγ).
+- Thu gọn các phần thông tin bổ sung; chứng chỉ, mã nguồn, đồng vị, hình học,
+  khoảng cách, tham chiếu và sai số không còn bắt buộc để tính hiệu suất.
+- Chọn **Tự quy đổi A từ ngày chứng nhận** nếu cần; lúc đó chỉ yêu cầu thêm ngày
+  có múi giờ, bán rã và real time. Không nhập bán rã nghĩa là chưa hiệu chỉnh phân
+  rã trong phép đo; A ở chế độ cơ bản phải do người dùng quy đổi về đầu đo.
+- K bỏ trống =1; sai số bỏ trống ghi **chưa cung cấp**. Khoảng ± chỉ gồm các
+  thành phần đã có, không được coi là ngân sách sai số đầy đủ. Bỏ trống nhận dạng
+  thì không tự gán tương quan nguồn/Pγ không có căn cứ.
+- JSON schema 2 bảo toàn chế độ tính và thông tin còn thiếu; đọc tương thích
+  schema 1 của v0.7.0. Không mở schema 2 bằng bản cũ. TXT ghi thêm chế độ hoạt độ
+  và thông tin chưa cung cấp; sửa dòng phiên bản báo cáo về 0.8.0.
+- Giữ kiểm tra số học/vật lý: hoạt độ và live time dương, Pγ hợp lệ, ROI fit đạt,
+  đủ điểm/đúng miền năng lượng và chất lượng fit. Hình học phù hợp vẫn là điều kiện
+  vật lý; bỏ trống tên không chứng minh phép đo khớp bộ chuẩn.
 
-**Cài trên Mac:** mở DMG đúng chip → kéo ứng dụng vào Applications → eject DMG → mở
-app. Bản macOS có chữ ký ad-hoc nhưng **chưa ký Apple Developer ID/notarize**. Nếu bị
-chặn lần đầu, vào System Settings → Privacy & Security → Open Anyway để cho phép
-riêng app; không cần tắt Gatekeeper toàn máy. Windows cũng chưa ký số nhà phát hành.
+[Hướng dẫn nhập gọn](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).
+Hướng dẫn Word v0.7.0 mô tả luồng cũ; xem hướng dẫn nhập gọn cho những thay đổi trên.
 
-- [Hướng dẫn macOS](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/macos/README.md)
-- [Phương pháp tính và giới hạn](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/windows/README.md)
-- [Quyền sử dụng và phân phối miễn phí](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/DISTRIBUTION-LICENSE.txt)
+Kiểm tra: 179 kiểm tra dữ liệu với phổ riêng, 168 kiểm tra chung khi không có
+phổ riêng; smoke test WPF và macOS native gồm luồng đầy đủ và luồng chỉ có đầu
+vào tối thiểu, lưu/đọc JSON và các chức năng phổ/ROI hiện có.
 
-Gói macOS được build và kiểm tra native trên macOS 15 Apple Silicon/Intel. DMG được
-verify, mount read-only và chạy kiểm tra giao diện từ ứng dụng bên trong. Kiểm tra
-bao gồm phổ CNF tổng hợp, nhiều phổ, hiệu chuẩn/phông, ROI và tổng số đếm, dò/chỉnh/hủy,
-GLS/JSON/hoạt độ, ảnh PNG và báo cáo. Core có 155 kiểm tra với phổ riêng tại môi trường
-phát triển; CI chạy 144 kiểm tra chung. Windows chạy WPF smoke checks như trước.
-`SHA256SUMS.txt` đi kèm để đối chiếu các file tải.
-
-Chưa xác nhận hiệu suất/hoạt độ bằng nguồn chuẩn thực tế hoặc đối chiếu Genie 2000.
-ROI tổng còn chứa nền liên tục; một Gaussian không tách multiplet; chưa tự nhận diện
-đồng vị hoặc hiệu chỉnh tự hấp thụ/trùng phùng. Cần kiểm chứng kết quả trước khi dùng
-chính thức. Không kèm phổ CNF của người dùng hoặc bộ chuẩn thực tế giả định.
+Mac: tải đúng DMG, kéo app vào Applications. Chưa ký Apple Developer ID/notarize;
+nếu bị chặn lần đầu, dùng Privacy & Security → Open Anyway cho riêng app. Windows
+chưa ký số nhà phát hành. Kiểm chứng kết quả với nguồn chuẩn độc lập trước khi
+sử dụng chính thức; chưa xác nhận bằng nguồn chuẩn thực tế/Genie 2000.

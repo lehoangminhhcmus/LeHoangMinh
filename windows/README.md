@@ -1,4 +1,4 @@
-# Gamma CNF Reader 0.6.0 — C# / WPF
+# Gamma CNF Reader 0.8.0 — C# / WPF
 
 App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF`. Bản self-contained không cần Python, Genie 2000 hay cài .NET riêng. Mở file, kéo thả hoặc truyền đường dẫn qua dòng lệnh.
 
@@ -6,7 +6,7 @@ App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.C
 
 Tải bộ cài tại [Releases](https://github.com/lehoangminhhcmus/LeHoangMinh/releases). Chạy `GammaCNFReader-CSharp-Setup.exe`, hoặc giải nén ZIP và chạy `GammaCNFReader.exe`. `Install.cmd` cài theo người dùng và tạo shortcut/mục gỡ cài đặt; không cần Administrator. Đóng app trước khi cập nhật/gỡ.
 
-Bản v0.6.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
+Bản v0.8.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
 
 ## Chuyển giữa các phổ đang mở (mới ở v0.5.0)
 
@@ -86,6 +86,21 @@ Vạch đứt màu cam đánh dấu kênh ứng viên, nền ROI thể hiện v�
 - Nếu thay hiệu chuẩn/phông trong lúc dò, kết quả cũ bị bỏ. Nếu thay sau khi đã dò, giữ vùng cũ và tính lại thống kê/fit nhưng đánh dấu thông tin dò là cũ; bấm dò lại để cập nhật. Tham số dò và nguồn ROI giữ riêng theo từng phổ trong phiên.
 
 TXT bổ sung `Origin` và `Detection_note` chứa phương pháp, ngưỡng, độ rộng, kênh/SNR/FWHM ước lượng của ứng viên và cảnh báo nhóm/biên. Phân biệt FWHM **ước lượng để chọn ROI** với FWHM **fit Gaussian** trong bảng định lượng. Chỉ ROI fit đạt mới có thể dùng cho chuẩn hiệu suất/hoạt độ; app không tự nhận diện đồng vị.
+
+## Chuẩn hiệu suất nhập gọn (v0.8.0)
+
+Mặc định chỉ cần chọn ROI Gaussian đạt, nhập **hoạt độ tại đầu phép đo (Bq)** và
+**xác suất gamma (%)**. Live time từ CNF; năng lượng để trống lấy từ tâm ROI.
+Các ô chứng chỉ, mã nguồn, đồng vị, hình học, khoảng cách, tham chiếu và sai số
+đều có thể để trống. Xem [hướng dẫn nhập gọn](../docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).
+Bỏ trống sai số được ghi là chưa cung cấp, không phải sai số thật bằng 0; ± chỉ
+phản ánh thành phần có dữ liệu. Không nhập bán rã nghĩa là chưa hiệu chỉnh phân
+rã trong phép đo. Nếu chọn **Tự quy đổi A từ ngày chứng nhận**, mới cần thêm các
+ngày có múi giờ, bán rã và real time. JSON mới schema 2; đọc được schema 1 cũ.
+
+Phần dưới mô tả quy trình đầy đủ với thông tin bổ sung, không phải danh sách
+bắt buộc của chế độ nhập gọn. Điều kiện vật lý về hình học và chất lượng ROI/
+đường chuẩn vẫn áp dụng.
 
 ## Chuẩn hiệu suất đỉnh toàn phần
 

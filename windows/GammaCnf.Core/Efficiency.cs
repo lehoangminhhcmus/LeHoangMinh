@@ -4,36 +4,37 @@ using System.Text.Json;
 
 namespace GammaCnf.Core;
 
-public sealed record MeasurementGeometry(string Detector,string Configuration,double DistanceMm,string Notes)
+public sealed record MeasurementGeometry(string Detector,string Configuration,double DistanceMm,string Notes,bool OptionalMetadata=false,bool DistanceSpecified=true)
 {
     public void Validate()
     {
-        if(string.IsNullOrWhiteSpace(Detector)||string.IsNullOrWhiteSpace(Configuration)||!double.IsFinite(DistanceMm)||DistanceMm<0)
+        if((!OptionalMetadata&&(string.IsNullOrWhiteSpace(Detector)||string.IsNullOrWhiteSpace(Configuration)))||!double.IsFinite(DistanceMm)||DistanceMm<0)
             throw new CnfException("Nhập detector, mã hình học/cấu hình mẫu và khoảng cách không âm (mm).");
     }
     public bool Matches(MeasurementGeometry other)=>string.Equals(Detector.Trim(),other.Detector.Trim(),StringComparison.OrdinalIgnoreCase)
-        &&string.Equals(Configuration.Trim(),other.Configuration.Trim(),StringComparison.OrdinalIgnoreCase)&&Math.Abs(DistanceMm-other.DistanceMm)<.01
+        &&string.Equals(Configuration.Trim(),other.Configuration.Trim(),StringComparison.OrdinalIgnoreCase)&&DistanceSpecified==other.DistanceSpecified&&(!DistanceSpecified||Math.Abs(DistanceMm-other.DistanceMm)<.01)
         &&string.Equals(Notes.Trim(),other.Notes.Trim(),StringComparison.OrdinalIgnoreCase);
 }
 public sealed record StandardSource(string Id,string Nuclide,string Certificate,double ActivityBq,double ActivitySigmaBq,
-    DateTimeOffset ReferenceDate,double HalfLifeDays,double HalfLifeSigmaDays,double CoverageFactor=1,string HalfLifeReference="")
+    DateTimeOffset ReferenceDate,double HalfLifeDays,double HalfLifeSigmaDays,double CoverageFactor=1,string HalfLifeReference="",bool ActivityAtMeasurement=false,bool OptionalMetadata=false)
 {
     public void Validate()
     {
-        if(string.IsNullOrWhiteSpace(Id)||string.IsNullOrWhiteSpace(Nuclide)||string.IsNullOrWhiteSpace(Certificate))throw new CnfException("Nhập mã nguồn, đồng vị và tham chiếu chứng chỉ.");
+        if(string.IsNullOrWhiteSpace(Id)||(!OptionalMetadata&&(string.IsNullOrWhiteSpace(Nuclide)||string.IsNullOrWhiteSpace(Certificate))))throw new CnfException("Nhập mã nguồn, đồng vị và tham chiếu chứng chỉ.");
         Guard.Positive(CoverageFactor,"Hệ số phủ k");if(CoverageFactor<1)throw new CnfException("Hệ số phủ chứng chỉ k phải ≥1.");
-        Guard.Positive(ActivityBq,"Hoạt độ chuẩn");Guard.Nonnegative(ActivitySigmaBq,"Sai số hoạt độ");Guard.Positive(HalfLifeDays,"Chu kỳ bán rã");Guard.Nonnegative(HalfLifeSigmaDays,"Sai số chu kỳ bán rã");
-        if(ActivitySigmaBq/ActivityBq>.5||HalfLifeSigmaDays/HalfLifeDays>.2)throw new CnfException("Sai số chuẩn quá lớn cho phép lan truyền tuyến tính (hoạt độ ≤50%, chu kỳ bán rã ≤20%).");
+        Guard.Positive(ActivityBq,"Hoạt độ chuẩn");Guard.Nonnegative(ActivitySigmaBq,"Sai số hoạt độ");if(ActivityAtMeasurement)Guard.Nonnegative(HalfLifeDays,"Chu kỳ bán rã");else Guard.Positive(HalfLifeDays,"Chu kỳ bán rã");Guard.Nonnegative(HalfLifeSigmaDays,"Sai số chu kỳ bán rã");
+        if(HalfLifeDays==0&&HalfLifeSigmaDays!=0)throw new CnfException("Nhập bán rã trước khi nhập sai số bán rã.");
+        if(ActivitySigmaBq/ActivityBq>.5||(HalfLifeDays>0&&HalfLifeSigmaDays/HalfLifeDays>.2))throw new CnfException("Sai số chuẩn quá lớn cho phép lan truyền tuyến tính (hoạt độ ≤50%, chu kỳ bán rã ≤20%).");
     }
 }
-public sealed record GammaEmission(double EnergyKeV,double Probability,double ProbabilitySigma,string Reference)
+public sealed record GammaEmission(double EnergyKeV,double Probability,double ProbabilitySigma,string Reference,bool OptionalMetadata=false)
 {
     public void Validate()
     {
         Guard.Positive(EnergyKeV,"Năng lượng gamma");Guard.Positive(Probability,"Xác suất gamma");Guard.Nonnegative(ProbabilitySigma,"Sai số xác suất gamma");
-        if(Probability>1||ProbabilitySigma>=Probability||string.IsNullOrWhiteSpace(Reference))throw new CnfException("Xác suất gamma phải trong (0,1], sai số nhỏ hơn xác suất; cần nguồn dữ liệu hạt nhân.");
+        if(Probability>1||ProbabilitySigma>=Probability||(!OptionalMetadata&&string.IsNullOrWhiteSpace(Reference)))throw new CnfException("Xác suất gamma phải trong (0,1], sai số nhỏ hơn xác suất; cần nguồn dữ liệu hạt nhân.");
     }
-    public string Key(string nuclide)=>$"gamma:{nuclide.Trim().ToUpperInvariant()}:{EnergyKeV.ToString("G17",CultureInfo.InvariantCulture)}:{Reference.Trim().ToUpperInvariant()}";
+    public string Key(string nuclide)=>string.IsNullOrWhiteSpace(nuclide)||string.IsNullOrWhiteSpace(Reference)?"":$"gamma:{nuclide.Trim().ToUpperInvariant()}:{EnergyKeV.ToString("G17",CultureInfo.InvariantCulture)}:{Reference.Trim().ToUpperInvariant()}";
 }
 public static class Guard
 {
@@ -51,8 +52,10 @@ public static class RadioactiveDecay
     }
     public static double Exposure(StandardSource source,DateTimeOffset measured,double live,double real)
     {
-        source.Validate();ValidateTimes(live,real);
-        double exponent=-Math.Log(2)*(measured-source.ReferenceDate).TotalDays/source.HalfLifeDays;
+        source.Validate();
+        if(source.ActivityAtMeasurement&&source.HalfLifeDays==0){Guard.Positive(live,"Live time");if(real!=0)ValidateTimes(live,real);return source.ActivityBq*live;}
+        ValidateTimes(live,real);
+        double exponent=source.ActivityAtMeasurement?0:-Math.Log(2)*(measured-source.ReferenceDate).TotalDays/source.HalfLifeDays;
         double result=source.ActivityBq*Math.Exp(exponent)*live*AverageFactor(source.HalfLifeDays,real);
         Guard.Positive(result,"Tích hoạt độ–thời gian");return result;
     }
@@ -70,14 +73,16 @@ public static class RadioactiveDecay
 public sealed record EfficiencyObservation(MeasurementGeometry Geometry,StandardSource Source,GammaEmission Gamma,
     DateTimeOffset MeasuredAt,double LiveSeconds,double RealSeconds,double Area,double AreaSigma,
     double CentroidKeV,double FwhmKeV,double ReducedChiSquare,int RoiStart,int RoiEnd,
-    string MeasurementId,string SpectrumPath,string? BackgroundPath,double BackgroundScale,double Correction=1,double CorrectionSigma=0,string CorrectionNotes="")
+    string MeasurementId,string SpectrumPath,string? BackgroundPath,double BackgroundScale,double Correction=1,double CorrectionSigma=0,string CorrectionNotes="",string[]? MissingInputs=null)
 {
     public void Validate()
     {
-        Geometry.Validate();Source.Validate();Gamma.Validate();RadioactiveDecay.ValidateTimes(LiveSeconds,RealSeconds);
+        Geometry.Validate();Source.Validate();Gamma.Validate();
+        if(Source.ActivityAtMeasurement&&Source.HalfLifeDays==0){Guard.Positive(LiveSeconds,"Live time");if(RealSeconds!=0)RadioactiveDecay.ValidateTimes(LiveSeconds,RealSeconds);}
+        else RadioactiveDecay.ValidateTimes(LiveSeconds,RealSeconds);
         Guard.Positive(Area,"Diện tích đỉnh");Guard.Positive(AreaSigma,"Sai số diện tích");Guard.Positive(CentroidKeV,"Tâm đỉnh keV");Guard.Positive(FwhmKeV,"FWHM keV");Guard.Nonnegative(ReducedChiSquare,"Chi2/ν");
         Guard.Nonnegative(BackgroundScale,"Hệ số phông");Guard.Positive(Correction,"K đỉnh nguồn chuẩn");Guard.Nonnegative(CorrectionSigma,"Sai số K đỉnh nguồn chuẩn");
-        if((Correction!=1||CorrectionSigma!=0)&&string.IsNullOrWhiteSpace(CorrectionNotes))throw new CnfException("Ghi căn cứ K hiệu chỉnh đỉnh nguồn chuẩn.");
+        if(!Source.OptionalMetadata&&(Correction!=1||CorrectionSigma!=0)&&string.IsNullOrWhiteSpace(CorrectionNotes))throw new CnfException("Ghi căn cứ K hiệu chỉnh đỉnh nguồn chuẩn.");
         if(Area/AreaSigma<3||ReducedChiSquare>3||RoiStart<0||RoiEnd-RoiStart<8||string.IsNullOrWhiteSpace(MeasurementId))
             throw new CnfException("Điểm chuẩn cần ROI hợp lệ, diện tích ≥3σ và χ²/ν ≤3.");
         if(Math.Abs(CentroidKeV-Gamma.EnergyKeV)>Math.Max(.2,FwhmKeV/2))throw new CnfException("Vạch gamma không khớp tâm ROI (lệch hơn nửa FWHM hoặc 0,2 keV).");
@@ -85,14 +90,21 @@ public sealed record EfficiencyObservation(MeasurementGeometry Geometry,Standard
         if(!double.IsFinite(epsilon)||epsilon<=0||epsilon>1)throw new CnfException("Hiệu suất đỉnh phải trong (0,1]. Kiểm tra Bq, %, thời gian, phân rã và ghép vạch.");
     }
     public double Efficiency=>Area*Correction/(RadioactiveDecay.Exposure(Source,MeasuredAt,LiveSeconds,RealSeconds)*Gamma.Probability);
-    public string HalfLifeKey=>string.IsNullOrWhiteSpace(Source.HalfLifeReference)?$"source:{Source.Id.Trim().ToUpperInvariant()}:half-life":$"half-life:{Source.Nuclide.Trim().ToUpperInvariant()}:{Source.HalfLifeReference.Trim().ToUpperInvariant()}";
-    public Dictionary<string,double> Systematics()=>new()
+    public string HalfLifeKey=>(string.IsNullOrWhiteSpace(Source.HalfLifeReference)||string.IsNullOrWhiteSpace(Source.Nuclide))?$"source:{Source.Id.Trim().ToUpperInvariant()}:half-life":$"half-life:{Source.Nuclide.Trim().ToUpperInvariant()}:{Source.HalfLifeReference.Trim().ToUpperInvariant()}";
+    public string SourceKey=>Source.ActivityAtMeasurement?Source.Id+":"+MeasurementId:Source.Id;
+    public Dictionary<string,double> Systematics()
     {
-        [$"source:{Source.Id.Trim().ToUpperInvariant()}:activity"]=-Source.ActivitySigmaBq/Source.ActivityBq,
-        [HalfLifeKey]=RadioactiveDecay.HalfLifeLogSensitivity(Source,MeasuredAt,LiveSeconds,RealSeconds),
-        [Gamma.Key(Source.Nuclide)]=-Gamma.ProbabilitySigma/Gamma.Probability
-    };
-    public double IndependentLogVariance=>Math.Pow(AreaSigma/Area,2)+Math.Pow(CorrectionSigma/Correction,2);
+        var result=new Dictionary<string,double>
+        {
+            [HalfLifeKey]=RadioactiveDecay.HalfLifeLogSensitivity(Source,MeasuredAt,LiveSeconds,RealSeconds)
+        };
+        if(!Source.Id.StartsWith("auto:"))result[$"source:{SourceKey.Trim().ToUpperInvariant()}:activity"]=-Source.ActivitySigmaBq/Source.ActivityBq;
+        string key=Gamma.Key(Source.Nuclide);
+        if(key.Length>0)result[key]=-Gamma.ProbabilitySigma/Gamma.Probability;
+        return result;
+    }
+    public double IndependentLogVariance=>Math.Pow(AreaSigma/Area,2)+Math.Pow(CorrectionSigma/Correction,2)+(Source.Id.StartsWith("auto:")?Math.Pow(Source.ActivitySigmaBq/Source.ActivityBq,2):0)+
+        (Gamma.Key(Source.Nuclide).Length==0?Math.Pow(Gamma.ProbabilitySigma/Gamma.Probability,2):0);
     public double TotalRelativeSigma=>Math.Sqrt(IndependentLogVariance+Systematics().Values.Sum(x=>x*x));
 }
 public sealed record EfficiencyFile(int SchemaVersion,string Name,MeasurementGeometry Geometry,DateTimeOffset CreatedAt,int Degree,EfficiencyObservation[] Points);
@@ -104,6 +116,9 @@ public sealed class EfficiencyProfile
     public double[,] Covariance {get;}
     public double[] ResidualSigma {get;}
     public double ChiSquarePerDof {get;}
+    public string[] InputWarnings=>Definition.Points.SelectMany(p=>p.MissingInputs??[]).Distinct().ToArray();
+    public bool HasOptionalInputs=>InputWarnings.Length>0||Definition.Geometry.OptionalMetadata;
+    public string InputSummary=>InputWarnings.Length==0?"":"Thông tin chưa cung cấp/giả định: "+string.Join("; ",InputWarnings)+". Sai số chỉ gồm các thành phần đã nhập; chưa phải ngân sách đầy đủ.";
     public double MinEnergy=>Definition.Points.Min(p=>p.Gamma.EnergyKeV);
     public double MaxEnergy=>Definition.Points.Max(p=>p.Gamma.EnergyKeV);
     private EfficiencyProfile(EfficiencyFile file,double[] coefficients,double[,] covariance,double[] residuals,double chi2)
@@ -113,12 +128,12 @@ public sealed class EfficiencyProfile
         geometry.Validate();var points=observations.ToArray();
         if(string.IsNullOrWhiteSpace(name)||degree is <1 or >3||points.Length<degree+2||points.Length>500)throw new CnfException("Đặt tên bộ chuẩn; bậc 1–3 cần ít nhất bậc+2 điểm, tối đa 500 điểm.");
         foreach(var p in points){p.Validate();if(!geometry.Matches(p.Geometry))throw new CnfException("Không gộp điểm chuẩn khác detector/hình học/khoảng cách/ghi chú cấu hình.");}
-        foreach(var group in points.GroupBy(p=>p.Source.Id.Trim().ToUpperInvariant()))
-            if(group.Any(p=>p.Source!=group.First().Source))throw new CnfException("Cùng mã nguồn phải có cùng thông tin chứng chỉ, đồng vị, hoạt độ và bán rã.");
+        foreach(var group in points.Where(p=>!p.Source.Id.StartsWith("auto:")).GroupBy(p=>p.SourceKey.Trim().ToUpperInvariant()))
+            if(group.Any(p=>(p.Source with{OptionalMetadata=group.First().Source.OptionalMetadata})!=group.First().Source))throw new CnfException("Cùng mã nguồn phải có cùng thông tin chứng chỉ, đồng vị, hoạt độ và bán rã.");
         foreach(var group in points.GroupBy(p=>p.HalfLifeKey))
             if(group.Any(p=>p.Source.HalfLifeDays!=group.First().Source.HalfLifeDays||p.Source.HalfLifeSigmaDays!=group.First().Source.HalfLifeSigmaDays))throw new CnfException("Cùng dữ liệu bán rã phải dùng cùng giá trị và sai số.");
-        foreach(var group in points.GroupBy(p=>p.Gamma.Key(p.Source.Nuclide)))
-            if(group.Any(p=>p.Gamma!=group.First().Gamma))throw new CnfException("Cùng vạch và nguồn dữ liệu phải có cùng xác suất gamma/sai số.");
+        foreach(var group in points.Where(p=>p.Gamma.Key(p.Source.Nuclide).Length>0).GroupBy(p=>p.Gamma.Key(p.Source.Nuclide)))
+            if(group.Any(p=>(p.Gamma with{OptionalMetadata=group.First().Gamma.OptionalMetadata})!=group.First().Gamma))throw new CnfException("Cùng vạch và nguồn dữ liệu phải có cùng xác suất gamma/sai số.");
         for(int i=0;i<points.Length;i++)for(int j=0;j<i;j++)
             if(points[i].MeasurementId==points[j].MeasurementId&&points[i].RoiStart<=points[j].RoiEnd&&points[j].RoiStart<=points[i].RoiEnd)
                 throw new CnfException("Không dùng lặp hoặc chồng ROI của cùng phép đo làm các điểm chuẩn độc lập.");
@@ -138,7 +153,7 @@ public sealed class EfficiencyProfile
         var residuals=new double[n];var r=new double[n];
         for(int i=0;i<n;i++){r[i]=y[i]-x[i].Zip(c,(a,b)=>a*b).Sum();residuals[i]=r[i]/Math.Sqrt(noise[i,i]);}
         double chi2=r.Zip(LinearAlgebra.Multiply(precision,r),(a,b)=>a*b).Sum()/(n-m);
-        var model=new EfficiencyProfile(new(1,name,geometry,created??DateTimeOffset.UtcNow,degree,points),c,covariance,residuals,chi2);
+        var model=new EfficiencyProfile(new(2,name,geometry,created??DateTimeOffset.UtcNow,degree,points),c,covariance,residuals,chi2);
         // Validate all extrema of the log-polynomial, rather than only sampled energies.
         double lo=Math.Log(model.MinEnergy/1000),hi=Math.Log(model.MaxEnergy/1000);
         var extrema=new List<double>{lo,hi};
@@ -184,7 +199,8 @@ public sealed class EfficiencyProfile
         try
         {
             var file=JsonSerializer.Deserialize<EfficiencyFile>(File.ReadAllText(path))??throw new CnfException("JSON rỗng.");
-            if(file.SchemaVersion!=1||file.Points is null||file.Geometry is null||file.Points.Length>500||file.Degree is <1 or >3||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>p is null||p.Geometry is null||p.Source is null||p.Gamma is null))throw new CnfException("Schema bộ chuẩn không được hỗ trợ hoặc thiếu dữ liệu.");
+            if(file.SchemaVersion is not (1 or 2)||file.Points is null||file.Geometry is null||file.Points.Length>500||file.Degree is <1 or >3||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>p is null||p.Geometry is null||p.Source is null||p.Gamma is null))throw new CnfException("Schema bộ chuẩn không được hỗ trợ hoặc thiếu dữ liệu.");
+            if(file.SchemaVersion==1&&(file.Geometry.OptionalMetadata||file.Points.Any(p=>p.Source.ActivityAtMeasurement||p.Source.OptionalMetadata||p.Gamma.OptionalMetadata||p.MissingInputs is not null)))throw new CnfException("Dữ liệu nhập gọn cần schema 2 để không bị hiểu sai chế độ hoạt độ.");
             file.Geometry.Validate();foreach(var p in file.Points){p.Validate();if(!p.Geometry.Matches(file.Geometry))throw new CnfException("Điểm trong JSON khác hình học bộ chuẩn.");}
             return file;
         }
@@ -195,7 +211,8 @@ public sealed class EfficiencyProfile
     public static void SaveDefinition(string path,EfficiencyFile file)
     {
         file.Geometry.Validate();foreach(var p in file.Points)p.Validate();
-        if(file.SchemaVersion!=1||file.Degree is <1 or >3||file.Points.Length>500||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>!p.Geometry.Matches(file.Geometry)))throw new CnfException("Bộ chuẩn nháp không hợp lệ.");
+        if(file.SchemaVersion is not (1 or 2)||file.Degree is <1 or >3||file.Points.Length>500||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>!p.Geometry.Matches(file.Geometry)))throw new CnfException("Bộ chuẩn nháp không hợp lệ.");
+        if(file.SchemaVersion==1&&(file.Geometry.OptionalMetadata||file.Points.Any(p=>p.Source.ActivityAtMeasurement||p.Source.OptionalMetadata||p.Gamma.OptionalMetadata||p.MissingInputs is not null)))throw new CnfException("Dữ liệu nhập gọn phải lưu schema 2.");
         string temp=Path.GetFullPath(path)+"."+Guid.NewGuid().ToString("N")+".tmp";
         try{File.WriteAllText(temp,JsonSerializer.Serialize(file,new JsonSerializerOptions{WriteIndented=true}),new UTF8Encoding(false));File.Move(temp,path,true);}
         finally{if(File.Exists(temp))File.Delete(temp);}

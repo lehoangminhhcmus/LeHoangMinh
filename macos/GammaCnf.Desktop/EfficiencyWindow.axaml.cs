@@ -19,7 +19,7 @@ public sealed class EfficiencyWorkspace
     public EfficiencyProfile? Profile {get;set;}
     public MeasurementGeometry? Geometry {get;set;}
     public string Name {get;set;}="";
-    public int Degree {get;set;}=2;
+    public int Degree {get;set;}=1;
     public DateTimeOffset CreatedAt {get;set;}=DateTimeOffset.UtcNow;
     public StandardSource? LastSource {get;set;}
     public GammaEmission? LastGamma {get;set;}
@@ -27,10 +27,10 @@ public sealed class EfficiencyWorkspace
 }
 public sealed record EfficiencyRow(EfficiencyObservation Observation)
 {
-    public string Source=>Observation.Source.Id+" / "+Observation.Source.Nuclide;
+    public string Source=>(Observation.Source.Id.StartsWith("auto:")?"Chưa đặt mã":Observation.Source.Id)+" / "+Observation.Source.Nuclide;
     public string Energy=>Observation.Gamma.EnergyKeV.ToString("G9");
     public string Efficiency=>Observation.Efficiency.ToString("G6");
-    public string RelativeSigma=>(Observation.TotalRelativeSigma*100).ToString("N3");
+    public string RelativeSigma=>(Observation.TotalRelativeSigma*100).ToString("N3")+(Observation.MissingInputs is {Length:>0}?" †":"");
     public string Provenance=>$"{Observation.RoiStart}–{Observation.RoiEnd} | {Path.GetFileName(Observation.SpectrumPath)}";
 }
 public sealed record EfficiencyRoi(int Id,RoiResult Result)
@@ -84,35 +84,39 @@ public partial class EfficiencyWindow : Window
         {_ = Dialogs.Message(this,e.Message,"Kiểm tra dữ liệu");}
     }
     private async Task RunAsync(Func<Task> action){try{await action();}catch(Exception e)when(e is CnfException or IOException or UnauthorizedAccessException or ArgumentException or OverflowException){await Dialogs.Message(this,e.Message,"Kiểm tra dữ liệu");}}
-    private MeasurementGeometry Geometry()
-    {var g=new MeasurementGeometry((DetectorText.Text??"").Trim(),(GeometryText.Text??"").Trim(),Num(DistanceText),(GeometryNotes.Text??"").Trim());g.Validate();return g;}
-    private void FillGeometry(MeasurementGeometry g){DetectorText.Text=g.Detector;GeometryText.Text=g.Configuration;DistanceText.Text=F(g.DistanceMm);GeometryNotes.Text=g.Notes;}
+    private MeasurementGeometry Geometry()=>EfficiencyInput.Geometry(DetectorText.Text,GeometryText.Text,DistanceText.Text,GeometryNotes.Text);
+    private void FillGeometry(MeasurementGeometry g){DetectorText.Text=g.Detector;GeometryText.Text=g.Configuration;DistanceText.Text=g.DistanceSpecified?F(g.DistanceMm):"";GeometryNotes.Text=g.Notes;}
     private void FillSource(StandardSource s)
     {
-        SourceId.Text=s.Id;SourceNuclide.Text=s.Nuclide;CertificateText.Text=s.Certificate;ActivityText.Text=F(s.ActivityBq);ActivitySigmaText.Text=F(100*s.ActivitySigmaBq/s.ActivityBq*s.CoverageFactor);ActivityCoverageText.Text=F(s.CoverageFactor);
-        ReferenceDateText.Text=s.ReferenceDate.ToString("O");HalfLifeText.Text=F(s.HalfLifeDays);HalfLifeSigmaText.Text=F(s.HalfLifeSigmaDays);
+        SourceId.Text=s.Id.StartsWith("auto:")?"":s.Id;SourceNuclide.Text=s.Nuclide;CertificateText.Text=s.Certificate;ActivityText.Text=F(s.ActivityBq);
+        ActivitySigmaText.Text=s.OptionalMetadata&&s.ActivitySigmaBq==0?"":F(100*s.ActivitySigmaBq/s.ActivityBq*s.CoverageFactor);ActivityCoverageText.Text=F(s.CoverageFactor);
+        UseCertificateDecay.IsChecked=!s.ActivityAtMeasurement;
+        ReferenceDateText.Text=s.ActivityAtMeasurement?"":s.ReferenceDate.ToString("O");HalfLifeText.Text=s.HalfLifeDays==0?"":F(s.HalfLifeDays);HalfLifeSigmaText.Text=s.OptionalMetadata&&s.HalfLifeSigmaDays==0?"":F(s.HalfLifeSigmaDays);
     }
-    private void FillGamma(GammaEmission g){GammaEnergy.Text=F(g.EnergyKeV);GammaProbability.Text=F(100*g.Probability);GammaSigma.Text=F(100*g.ProbabilitySigma);NuclearReference.Text=g.Reference;}
+    private void ActivityModeChanged(object sender,RoutedEventArgs e)
+    {
+        if(ActivityBasisLabel is null)return;
+        bool certificate=UseCertificateDecay.IsChecked==true;
+        ActivityBasisLabel.Text=certificate?"Hoạt độ tại ngày chứng nhận (Bq) *":"Hoạt độ tại đầu phép đo (Bq) *";
+        if(certificate){SourceDetails.IsExpanded=true;GeometryDetails.IsExpanded=true;}
+    }
+    private void FillGamma(GammaEmission g){GammaEnergy.Text=F(g.EnergyKeV);GammaProbability.Text=F(100*g.Probability);GammaSigma.Text=g.OptionalMetadata&&g.ProbabilitySigma==0?"":F(100*g.ProbabilitySigma);NuclearReference.Text=g.Reference;}
     private EfficiencyRoi SelectedRoi()=>RoiChoice.SelectedItem as EfficiencyRoi??throw new CnfException("Chọn ROI fit thành công ở phổ đang mở.");
     private void AddPointClick(object sender,RoutedEventArgs e)=>Run(AddPoint);
     private void AddPoint()
     {
-        var g=Geometry();var roi=SelectedRoi().Result;
-        if(roi.EnergyKeV is null||roi.FwhmKeV is null)throw new CnfException("ROI cần có hiệu chuẩn năng lượng hợp lệ.");
-        double a=Num(ActivityText),relative=Num(ActivitySigmaText)/100;double coverage=Num(ActivityCoverageText);Guard.Positive(coverage,"Hệ số phủ k");
-        var source=new StandardSource((SourceId.Text??"").Trim(),(SourceNuclide.Text??"").Trim(),(CertificateText.Text??"").Trim(),a,a*relative/coverage,Date(ReferenceDateText),Num(HalfLifeText),Num(HalfLifeSigmaText),coverage,(NuclearReference.Text??"").Trim());
-        var gamma=new GammaEmission(Num(GammaEnergy),Num(GammaProbability)/100,Num(GammaSigma)/100,(NuclearReference.Text??"").Trim());
-        var o=new EfficiencyObservation(g,source,gamma,Date(MeasuredAt),Num(LiveText),Num(RealText),roi.PeakArea!.Value,roi.AreaError!.Value,roi.EnergyKeV.Value,roi.FwhmKeV.Value,roi.ReducedChiSquare!.Value,roi.Range.Start,roi.Range.End,measurementId,path,background,session.Scale,Num(StandardCorrection),Num(StandardCorrectionSigma),(StandardCorrectionNotes.Text??"").Trim());
-        o.Validate();
+        var boxes=new TextBox[]{DetectorText,GeometryText,DistanceText,GeometryNotes,SourceId,SourceNuclide,CertificateText,ActivityText,ActivitySigmaText,ActivityCoverageText,ReferenceDateText,HalfLifeText,HalfLifeSigmaText,MeasuredAt,LiveText,RealText,GammaEnergy,GammaProbability,GammaSigma,NuclearReference,StandardCorrection,StandardCorrectionSigma,StandardCorrectionNotes};
+        var fields=boxes.ToDictionary(box=>box.Name!,box=>(string?)box.Text);
+        var o=EfficiencyInput.Build(session,SelectedRoi().Result,path,measurementId,background,fields,UseCertificateDecay.IsChecked==true);var g=o.Geometry;
         if(workspace.Points.Any(p=>!g.Matches(p.Geometry)))throw new CnfException("Điểm mới khác hình học của các điểm đang có. Tạo bộ chuẩn khác cho cấu hình khác.");
         if(workspace.Points.Any(p=>p.MeasurementId==o.MeasurementId&&p.RoiStart<=o.RoiEnd&&o.RoiStart<=p.RoiEnd))throw new CnfException("ROI trùng/chồng đã được dùng làm điểm chuẩn.");
         if(workspace.Points.Count>=500)throw new CnfException("Tối đa 500 điểm chuẩn.");
-        workspace.Points.Add(o);workspace.LastSource=source;workspace.LastGamma=gamma;
-        CaptureSettings();InvalidateFit();RefreshPoints();StatusText.Text="Đã thêm điểm. Lưu JSON có thể lưu cả bản nháp chưa đủ điểm để tiếp tục trên phổ khác.";
+        workspace.Points.Add(o);workspace.LastSource=o.Source;workspace.LastGamma=o.Gamma;
+        CaptureSettings();InvalidateFit();RefreshPoints();StatusText.Text="Đã thêm điểm. "+(o.MissingInputs is {Length:>0}?"† Có thông tin/sai số chưa cung cấp; ± chỉ gồm các thành phần đã có. ":"")+"Có thể lưu JSON nháp để tiếp tục trên phổ khác.";
     }
     private void CaptureSettings()
     {
-        workspace.Geometry=Geometry();workspace.Name=string.IsNullOrWhiteSpace(ProfileName.Text)?workspace.Geometry.Detector+" — "+workspace.Geometry.Configuration:(ProfileName.Text??"").Trim();
+        workspace.Geometry=Geometry();workspace.Name=string.IsNullOrWhiteSpace(ProfileName.Text)?"Chuẩn hiệu suất":(ProfileName.Text??"").Trim();
         ProfileName.Text=workspace.Name;workspace.Degree=DegreeChoice.SelectedIndex+1;
     }
     private void InvalidateFit(){workspace.Profile=null;workspace.Dirty=true;activity=null;activityProfile=null;ActivitySummary.Text="Dữ liệu chuẩn đã thay đổi. Fit lại đường chuẩn trước khi tính hoạt độ.";RefreshFit();}
@@ -129,14 +133,14 @@ public partial class EfficiencyWindow : Window
     private void Fit()
     {
         CaptureSettings();workspace.Profile=EfficiencyProfile.Fit(workspace.Name,workspace.Geometry!,workspace.Points,workspace.Degree,workspace.CreatedAt);workspace.Dirty=true;activity=null;activityProfile=null;
-        RefreshFit();StatusText.Text="Đã fit GLS; kiểm tra phần dư và lưu bộ chuẩn JSON. Sai số hoạt độ/bán rã chung của cùng nguồn được giữ tương quan.";
+        RefreshFit();StatusText.Text="Đã fit GLS; kiểm tra phần dư và lưu bộ chuẩn JSON. Tương quan chỉ được gán khi có mã nguồn/tham chiếu nhận dạng phù hợp; thông tin còn thiếu được ghi trong TXT/JSON.";
     }
     private void RefreshFit()
     {
         CurvePlot.Profile=workspace.Profile;CurvePlot.InvalidateVisual();
         if(workspace.Profile is not {} p){FitSummary.Text=$"{workspace.Points.Count} điểm. Chưa có đường chuẩn fit hợp lệ; cần bậc+2 năng lượng khác nhau.";return;}
         bool poor=p.ChiSquarePerDof>3||p.ResidualSigma.Any(r=>Math.Abs(r)>3);
-        FitSummary.Text=$"{p.Definition.Name} • {p.Definition.Points.Length} điểm • {p.MinEnergy:G8}–{p.MaxEnergy:G8} keV • χ²/ν={p.ChiSquarePerDof:N3}\nln ε = Σ c[j] ln(E/1000)^j; c = "+string.Join(", ",p.Coefficients.Select(F))+(poor?"\nCẢNH BÁO: χ²/ν hoặc phần dư vượt 3; chưa cho tính hoạt độ.":"\nKhông ngoại suy. Khoảng sai số là 1σ, phụ thuộc các thành phần đã nhập.");
+        FitSummary.Text=$"{p.Definition.Name} • {p.Definition.Points.Length} điểm • {p.MinEnergy:G8}–{p.MaxEnergy:G8} keV • χ²/ν={p.ChiSquarePerDof:N3}\nln ε = Σ c[j] ln(E/1000)^j; c = "+string.Join(", ",p.Coefficients.Select(F))+(p.InputWarnings.Length>0?"\nCó thông tin/sai số chưa cung cấp; ± chỉ gồm thành phần đã có. Xem TXT/JSON.":"")+(poor?"\nCẢNH BÁO: χ²/ν hoặc phần dư vượt 3; chưa cho tính hoạt độ.":"\nKhông ngoại suy. Khoảng sai số là 1σ, phụ thuộc các thành phần đã nhập.");
     }
     private async void LoadProfileClick(object sender,RoutedEventArgs e)=>await RunAsync(async ()=>
     {
@@ -153,7 +157,7 @@ public partial class EfficiencyWindow : Window
     });
     private async void SaveProfileClick(object sender,RoutedEventArgs e)=>await RunAsync(async ()=>
     {
-        CaptureSettings();var f=new EfficiencyFile(1,workspace.Name,workspace.Geometry!,workspace.CreatedAt,workspace.Degree,workspace.Points.ToArray());
+        CaptureSettings();var f=new EfficiencyFile(2,workspace.Name,workspace.Geometry!,workspace.CreatedAt,workspace.Degree,workspace.Points.ToArray());
         EfficiencyProfile? fitted=null;
         if(f.Points.Select(p=>p.Gamma.EnergyKeV).Distinct().Count()>=f.Degree+2)fitted=EfficiencyProfile.Fit(f.Name,f.Geometry,f.Points,f.Degree,f.CreatedAt);
         var filename=await Dialogs.Save(this,"Lưu bộ chuẩn","efficiency-calibration.json","json");if(filename is null)return;
@@ -192,7 +196,7 @@ public partial class EfficiencyWindow : Window
     });
     internal void RunSmokeChecks(string directory)
     {
-        automatedSmoke=true;
+        automatedSmoke=true;UseCertificateDecay.IsChecked=true;
         DetectorText.Text="HPGe-SYNTHETIC";GeometryText.Text="Point-SYNTHETIC";DistanceText.Text="100";GeometryNotes.Text="SYNTHETIC ONLY";ProfileName.Text="Synthetic UI validation";
         MeasuredAt.Text="2026-01-02T00:00:00+07:00";
         SourceId.Text="SYNTHETIC-SOURCE";SourceNuclide.Text="Demo-1000";CertificateText.Text="SYNTHETIC - not a certificate";
@@ -232,9 +236,31 @@ public partial class EfficiencyWindow : Window
             EfficiencyReports.Activity(Path.Combine(directory,"activity.txt"),workspace.Profile,roi,sampleWindow.activityRequest!,sampleWindow.activity,path,background,session.Scale);
         }
         finally{sampleWindow.Close();}
+        RunMinimalInputSmoke(directory,roi);
         StatusText.Text="Synthetic efficiency/activity UI checks passed. No real calibration is installed.";
     }
     private bool closingApproved;
+    private void RunMinimalInputSmoke(string directory,RoiResult roi)
+    {
+        var state=new EfficiencyWorkspace();
+        var minimal=new EfficiencyWindow(session,[roi],path,measurementId,background,state){automatedSmoke=true};
+        try
+        {
+            minimal.Show(this);
+            minimal.ActivityText.Text="10000";minimal.GammaProbability.Text="50";
+            minimal.MeasuredAt.Text="";minimal.RealText.Text="";minimal.GammaEnergy.Text="";
+            minimal.AddPoint();var point=state.Points.Single();
+            double expected=roi.PeakArea!.Value/(10000*session.Sample.LiveTime!.Value*.5);
+            if(Math.Abs(point.Efficiency/expected-1)>1e-10||!point.Source.ActivityAtMeasurement||point.Source.Certificate!=""||point.Geometry.DistanceSpecified||point.MissingInputs is not {Length:>0})throw new Exception("Minimal efficiency form still required optional inputs or changed epsilon.");
+            string file=Path.Combine(directory,"minimal-efficiency.json");EfficiencyProfile.SaveDefinition(file,new(2,"Minimal draft",point.Geometry,DateTimeOffset.UtcNow,1,[point]));
+            var reloaded=EfficiencyProfile.ReadDefinition(file).Points.Single();
+            if(!reloaded.Source.ActivityAtMeasurement||reloaded.MissingInputs!.Length!=point.MissingInputs.Length||reloaded.Efficiency!=point.Efficiency)throw new Exception("Minimal JSON lost calculation mode or missing inputs.");
+            File.WriteAllText(Path.Combine(directory,"minimal-efficiency-success.txt"),"PASS: only ROI + CNF live time + activity at measurement + gamma probability; all metadata, uncertainties, decay and K blank; energy from ROI; schema 2 roundtrip preserves missing inputs");
+            MainWindow.CaptureEvidence(minimal,Path.Combine(directory,"minimal-efficiency-window.png"));
+            state.Dirty=false;
+        }
+        finally{minimal.Close();}
+    }
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
         if(automatedSmoke||closingApproved||!workspace.Dirty){base.OnClosing(e);return;}

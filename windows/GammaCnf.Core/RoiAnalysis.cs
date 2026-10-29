@@ -124,7 +124,7 @@ public static class RoiAnalysis
         using var w=new StreamWriter(path,false,new UTF8Encoding(true));
         string F(double? x)=>x?.ToString("G12",CultureInfo.InvariantCulture)??"NA";
         string Clean(string s)=>s.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
-        w.WriteLine("Gamma CNF Reader 0.6.0 — ROI report (UTF-8, tab separated)");
+        w.WriteLine("Gamma CNF Reader 0.8.0 — ROI report (UTF-8, tab separated)");
         w.WriteLine("Exported_UTC\t"+DateTime.UtcNow.ToString("O",CultureInfo.InvariantCulture));
         w.WriteLine("Sample\t"+Clean(samplePath));w.WriteLine("Sample_live_seconds\t"+F(session.Sample.LiveTime));
         w.WriteLine("Background\t"+Clean(backgroundPath??"None"));w.WriteLine("Background_live_seconds\t"+F(session.Background?.LiveTime));

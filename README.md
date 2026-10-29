@@ -13,6 +13,15 @@ Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/rele
 
 **v0.7.0** bổ sung hai bản macOS native; mở DMG rồi kéo app vào Applications. [Hướng dẫn cài macOS và mở lần đầu](macos/README.md). Bản Mac chưa ký Apple Developer ID/notarize; nếu macOS chặn, dùng Privacy & Security → Open Anyway cho riêng app. Windows chưa ký số nhà phát hành. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
 
+## Chuẩn hiệu suất nhập gọn — v0.8.0
+
+Chọn ROI đã fit, nhập **hoạt độ tại đầu phép đo (Bq)** và **xác suất gamma (%)**;
+live time lấy từ CNF, năng lượng trống lấy từ tâm ROI. Chứng chỉ, mã nguồn, hình
+học, ghi chú và sai số có thể bỏ trống. Phần bổ sung được thu gọn mặc định. Chỉ yêu
+cầu ngày/bán rã khi chọn tự quy đổi hoạt độ từ chứng chỉ; nếu không nhập bán rã,
+không tự hiệu chỉnh phân rã trong phép đo. JSON/TXT ghi rõ thông tin chưa cung cấp
+và sai số chưa đầy đủ. [Hướng dẫn nhập gọn v0.8.0](docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).
+
 ## Hướng dẫn sử dụng v0.7.0
 
 - [Tải hướng dẫn Word (.docx), 20 trang](docs/Gamma_CNF_Reader_v0.7.0_Huong_dan_su_dung.docx).

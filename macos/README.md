@@ -29,6 +29,12 @@ native; bản Apple Silicon không cần Rosetta.
 Gỡ cài đặt: đóng app rồi chuyển ứng dụng trong Applications vào Trash. Không xóa
 các phổ/JSON/báo cáo bạn đã lưu ở thư mục riêng.
 
+## Chuẩn hiệu suất nhập gọn v0.8.0
+
+Chọn ROI đã fit, nhập A tại đầu đo (Bq) và Pγ (%); live time từ CNF. Các mục
+chứng chỉ, hình học, sai số và ghi chú tùy chọn, có thể để trống. Chỉ yêu cầu ngày
+và bán rã khi chọn tự quy đổi hoạt độ từ chứng chỉ. [Hướng dẫn chi tiết](../docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).
+
 ## Sử dụng
 
 - **Mở file…** cho phép chọn nhiều CNF; kéo thả vào cửa sổ hoặc Finder **Open With**.
