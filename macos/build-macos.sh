@@ -25,7 +25,7 @@ python3 macos/packaging/licenses.py macos/GammaCnf.Desktop/obj/project.assets.js
 chmod +x "$bundle/Contents/MacOS/GammaCNFReader"
 /usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$bundle/Contents/Info.plist"
 file "$bundle/Contents/MacOS/GammaCNFReader" | tee "$output/architecture.txt"
-lipo -verify_arch "$expected_arch" "$bundle/Contents/MacOS/GammaCNFReader"
+lipo "$bundle/Contents/MacOS/GammaCNFReader" -verify_arch "$expected_arch"
 # Local ad-hoc integrity signature; this is NOT an Apple Developer ID/notarization.
 codesign --force --deep --sign - --entitlements macos/packaging/entitlements.plist "$bundle"
 codesign --verify --deep --strict --verbose=2 "$bundle"
