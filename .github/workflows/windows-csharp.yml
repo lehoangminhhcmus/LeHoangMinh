@@ -88,7 +88,7 @@ jobs:
         run: |
           test -s release-files/macos/GammaCNFReader-macOS-osx-arm64.dmg
           test -s release-files/macos/GammaCNFReader-macOS-osx-x64.dmg
-          (cd release-files && sha256sum GammaCNFReader-CSharp-Windows-x64.zip installer/GammaCNFReader-CSharp-Setup.exe macos/*.dmg > SHA256SUMS.txt)
+          (cd release-files && sha256sum GammaCNFReader-CSharp-Windows-x64.zip installer/GammaCNFReader-CSharp-Setup.exe macos/*.dmg | sed 's#  installer/#  #;s#  macos/#  #' > SHA256SUMS.txt)
           gh release create "$RELEASE_TAG" \
             release-files/GammaCNFReader-CSharp-Windows-x64.zip \
             release-files/installer/GammaCNFReader-CSharp-Setup.exe \
