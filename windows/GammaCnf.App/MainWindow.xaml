@@ -8,6 +8,7 @@
     <Button x:Name="CsvButton" Content="Xuất CSV" Click="CsvClick" IsEnabled="False"/>
     <Button x:Name="PngButton" Content="Lưu PNG" Click="PngClick" IsEnabled="False"/>
     <Button Content="Toàn phổ" Click="ResetClick"/>
+    <Button Content="Hiệu suất / Hoạt độ…" Click="EfficiencyClick"/>
     <CheckBox x:Name="EnergyCheck" Content="keV" IsEnabled="False" Checked="ModeChanged" Unchecked="ModeChanged"/>
     <CheckBox x:Name="LogCheck" Content="Log" Checked="ModeChanged" Unchecked="ModeChanged"/>
    </StackPanel>

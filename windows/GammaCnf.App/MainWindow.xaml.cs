@@ -24,6 +24,7 @@ public sealed record RoiRow(int Id,RoiResult Result)
 }
 public partial class MainWindow : Window
 {
+    private readonly EfficiencyWorkspace efficiencyWorkspace=new();
     private AnalysisSession? session;
     private string? currentPath,backgroundPath,pendingBackgroundPath;
     private Spectrum? pendingBackground;
@@ -58,7 +59,12 @@ public partial class MainWindow : Window
         catch(Exception e) when(e is CnfException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or OverflowException) { Error(e); }
     }
     private bool ConfirmUnsaved()=>!calibrationDirty||MessageBox.Show(this,"Hiệu chuẩn chưa lưu vào CNF. Tiếp tục bỏ thay đổi chưa lưu?","Hiệu chuẩn chưa lưu",MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
-    protected override void OnClosing(CancelEventArgs e) { if(!ConfirmUnsaved())e.Cancel=true;base.OnClosing(e); }
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if(!ConfirmUnsaved())e.Cancel=true;
+        if(!e.Cancel&&efficiencyWorkspace.Dirty&&MessageBox.Show(this,"Điểm/bộ chuẩn hiệu suất chưa lưu JSON và sẽ mất khi đóng app. Vẫn đóng?","Chưa lưu chuẩn hiệu suất",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
+        base.OnClosing(e);
+    }
     internal void RunSmokeChecks(string path,string directory)
     {
         Directory.CreateDirectory(directory);
@@ -81,7 +87,16 @@ public partial class MainWindow : Window
         LogCheck.IsChecked=false;ClearBackgroundClick(this,new RoutedEventArgs());
         if(session.Background is not null||rows.Count!=1||!rows[0].Result.Success)throw new Exception("ROI recalculation after clearing background failed.");
         calibrationDirty=false;
+        var efficiencyWindow=new EfficiencyWindow(session,rows.Select(r=>r.Result).ToArray(),path,"SYNTHETIC-UI-MEASUREMENT",null,new EfficiencyWorkspace()){Owner=this};
+        try{efficiencyWindow.Show();efficiencyWindow.RunSmokeChecks(directory);}finally{efficiencyWindow.Close();}
     }
+    private void EfficiencyClick(object sender,RoutedEventArgs e)=>Execute(()=>
+    {
+        if(session is null||currentPath is null||originalBytes is null)throw new CnfException("Mở phổ, tạo ROI và fit trước khi thiết lập hiệu suất.");
+        string id=MeasurementIdentity.Create(session.Sample);
+        var window=new EfficiencyWindow(session,rows.Select(r=>r.Result).ToArray(),currentPath,id,backgroundPath,efficiencyWorkspace){Owner=this};
+        window.ShowDialog();
+    });
     private void OpenClick(object sender,RoutedEventArgs e)
     {
         var d=new OpenFileDialog { Filter="Canberra CNF (*.cnf)|*.cnf|Tất cả file (*.*)|*.*" };
@@ -106,7 +121,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.3.0";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.4.0";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
