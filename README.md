@@ -13,6 +13,14 @@ Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/rele
 
 **v0.7.0** bổ sung hai bản macOS native; mở DMG rồi kéo app vào Applications. [Hướng dẫn cài macOS và mở lần đầu](macos/README.md). Bản Mac chưa ký Apple Developer ID/notarize; nếu macOS chặn, dùng Privacy & Security → Open Anyway cho riêng app. Windows chưa ký số nhà phát hành. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
 
+## Hướng dẫn sử dụng v0.7.0
+
+- [Tải hướng dẫn Word (.docx), 20 trang](docs/Gamma_CNF_Reader_v0.7.0_Huong_dan_su_dung.docx).
+- [Đọc bản PDF](docs/Gamma_CNF_Reader_v0.7.0_Huong_dan_su_dung.pdf).
+- [Nội dung dạng văn bản](docs/Gamma_CNF_Reader_v0.7.0_Huong_dan_su_dung.md).
+
+Hướng dẫn Windows/macOS và toàn bộ chức năng v0.7.0. Mục 8–15 giải thích chi tiết chuẩn hiệu suất: chuẩn bị phép đo, hình học, chứng chỉ, đơn vị/sai số, ghép ROI–gamma, hệ số K, fit GLS, kiểm tra phần dư, lưu JSON và kiểm chứng độc lập. Có ví dụ tính một điểm giả định và phiếu ghi chép cho sinh viên.
+
 ## Chức năng
 
 - Mở/kéo thả nhiều CNF; nút trước/sau, danh sách và Ctrl+Tab để chuyển, giữ riêng trạng thái từng phổ. Zoom, thang tuyến tính/log, xuất CSV/PNG.
