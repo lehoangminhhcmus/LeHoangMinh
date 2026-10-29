@@ -51,4 +51,5 @@ try
 finally { File.Delete(output); }
 AnalysisChecks.Run(Check,args.Length>0?args[0]:null);
 EfficiencyChecks.Run(Check);
+Version5Checks.Run(Check);
 Console.WriteLine($"{passed} checks passed");

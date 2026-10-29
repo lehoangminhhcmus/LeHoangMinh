@@ -2,11 +2,16 @@ using System.Globalization;
 using System.Text;
 namespace GammaCnf.Core;
 
+public enum BackgroundTimeBasis { LiveTime, RealTime }
+
 public sealed class AnalysisSession
 {
     public Spectrum Sample { get; private set; }
     public Spectrum? Background { get; private set; }
     public double Scale { get; private set; }
+    public BackgroundTimeBasis? TimeBasis { get; private set; }
+    public double? BackgroundOriginalSeconds => Background is null?null:TimeBasis==BackgroundTimeBasis.LiveTime?Background.LiveTime:TimeBasis==BackgroundTimeBasis.RealTime?Background.RealTime:null;
+    public double? BackgroundTargetSeconds => Background is null?null:TimeBasis==BackgroundTimeBasis.LiveTime?Sample.LiveTime:TimeBasis==BackgroundTimeBasis.RealTime?Sample.RealTime:null;
     public double[] Values { get; private set; }
     public double[] Variances { get; private set; }
     public bool ChannelOnlyBackground { get; private set; }
@@ -18,10 +23,22 @@ public sealed class AnalysisSession
         if(Background is not null)CheckAlignment(candidate,Background,ChannelOnlyBackground);
         Sample=candidate;Recalculate();
     }
-    public static double LiveTimeScale(Spectrum sample,Spectrum background)
+    public static double LiveTimeScale(Spectrum sample,Spectrum background)=>TimeScale(sample,background,BackgroundTimeBasis.LiveTime);
+    public static double TimeScale(Spectrum sample,Spectrum background,BackgroundTimeBasis basis)
     {
-        if(!(sample.LiveTime>0) || !(background.LiveTime>0))throw new CnfException("Thiếu thời gian sống hợp lệ; nhập hệ số trừ phông thủ công.");
-        return sample.LiveTime.Value/background.LiveTime.Value;
+        if(basis is not (BackgroundTimeBasis.LiveTime or BackgroundTimeBasis.RealTime))throw new CnfException("Loại thời gian chuẩn hóa không hợp lệ.");
+        double? sampleTime=basis==BackgroundTimeBasis.LiveTime?sample.LiveTime:sample.RealTime;
+        double? backgroundTime=basis==BackgroundTimeBasis.LiveTime?background.LiveTime:background.RealTime;
+        if(sampleTime is not double t||backgroundTime is not double b||!double.IsFinite(t)||!double.IsFinite(b)||t<=0||b<=0)
+            throw new CnfException("Thiếu thời gian hợp lệ cho chế độ đã chọn. Chọn live/real phù hợp; không tự giả định hệ số 1.");
+        double scale=t/b;
+        if(!double.IsFinite(scale)||scale<=0||scale>1e12)throw new CnfException("Tỷ số thời gian vượt phạm vi hỗ trợ.");
+        return scale;
+    }
+    public void SetTimedBackground(Spectrum background,BackgroundTimeBasis basis=BackgroundTimeBasis.LiveTime,bool allowChannelOnly=false)
+    {
+        double factor=TimeScale(Sample,background,basis);
+        SetBackground(background,factor,allowChannelOnly);TimeBasis=basis;
     }
     public static void CheckAlignment(Spectrum sample,Spectrum background,bool allowChannelOnly=false)
     {
@@ -44,9 +61,9 @@ public sealed class AnalysisSession
     {
         if(!double.IsFinite(scale)||scale<=0||scale>1e12)throw new CnfException("Hệ số trừ phông phải dương, hữu hạn và không quá 1e12.");
         CheckAlignment(Sample,background,allowChannelOnly);
-        Background=background;Scale=scale;ChannelOnlyBackground=allowChannelOnly;Recalculate();
+        Background=background;Scale=scale;TimeBasis=null;ChannelOnlyBackground=allowChannelOnly;Recalculate();
     }
-    public void ClearBackground() { Background=null;Scale=0;ChannelOnlyBackground=false;Recalculate(); }
+    public void ClearBackground() { Background=null;Scale=0;TimeBasis=null;ChannelOnlyBackground=false;Recalculate(); }
     private void Recalculate()
     {
         Values=new double[Sample.Counts.Length];Variances=new double[Values.Length];

@@ -1,6 +1,6 @@
 <Window x:Class="GammaCnf.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:GammaCnf.App" Title="Gamma CNF Reader" Width="1450" Height="950" MinWidth="1100" MinHeight="750" Background="#F3F6FB" FontFamily="Segoe UI" FontSize="13" AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop" PreviewKeyDown="OnKeyDown">
  <Grid Margin="18">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="190"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="190"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel Margin="0,0,0,12">
    <TextBlock Text="GAMMA / CNF" FontSize="25" FontWeight="Bold" Foreground="#112C4C" VerticalAlignment="Center"/>
    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -13,10 +13,15 @@
     <CheckBox x:Name="LogCheck" Content="Log" Checked="ModeChanged" Unchecked="ModeChanged"/>
    </StackPanel>
   </DockPanel>
-  <Border Grid.Row="1" Padding="14,10" Margin="0,0,0,12" Background="White" CornerRadius="6">
+  <DockPanel Grid.Row="1" Margin="0,0,0,10">
+   <StackPanel Orientation="Horizontal" DockPanel.Dock="Left"><Button x:Name="PreviousButton" Content="◀ Phổ trước" Click="PreviousSpectrumClick" IsEnabled="False"/><Button x:Name="NextButton" Content="Phổ sau ▶" Click="NextSpectrumClick" IsEnabled="False"/></StackPanel>
+   <Button x:Name="CloseSpectrumButton" Content="Đóng phổ này" Click="CloseSpectrumClick" DockPanel.Dock="Right" IsEnabled="False"/>
+   <ComboBox x:Name="OpenedSpectra" DisplayMemberPath="Label" SelectionChanged="OpenedSpectrumChanged" VerticalContentAlignment="Center" Margin="6,0,12,0" ToolTip="Các phổ đang mở. Dấu *: hiệu chuẩn chưa lưu CNF. Ctrl+Tab/Ctrl+Shift+Tab để chuyển."/>
+  </DockPanel>
+  <Border Grid.Row="2" Padding="14,10" Margin="0,0,0,12" Background="White" CornerRadius="6">
    <StackPanel><TextBlock x:Name="FileLabel" Text="Chưa mở phổ" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Metadata" Text="Chọn hoặc kéo thả file Canberra .CNF." Margin="0,5,0,0" TextWrapping="Wrap"/><TextBlock x:Name="CalibrationLabel" TextWrapping="Wrap" Foreground="#52657B"/><TextBlock x:Name="BackgroundLabel" Text="Chưa trừ phông" Foreground="#52657B" TextWrapping="Wrap"/></StackPanel>
   </Border>
-  <Grid Grid.Row="2">
+  <Grid Grid.Row="3">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="370"/></Grid.ColumnDefinitions>
    <Border Background="White" CornerRadius="6" Padding="6" Margin="0,0,12,0"><local:SpectrumPlot x:Name="Plot"/></Border>
    <TabControl Grid.Column="1">
@@ -37,12 +42,13 @@
      <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="12">
       <Button Content="Chọn phổ phông CNF…" Click="BackgroundClick" Margin="0,0,0,10"/>
       <TextBlock x:Name="PendingBackgroundLabel" Text="Chưa chọn file" TextWrapping="Wrap"/>
-      <CheckBox x:Name="UseLiveScale" Content="α = live mẫu / live phông" IsChecked="True" Margin="0,12,0,8"/>
-      <TextBlock Text="α thủ công (bỏ chọn tỷ số live ở trên):" TextWrapping="Wrap"/><TextBox x:Name="ScaleText" Text="1" Margin="0,5,0,12"/>
+      <TextBlock Text="Tự chuẩn hóa thời gian phông về thời gian phổ mẫu:" Margin="0,12,0,5" TextWrapping="Wrap"/>
+      <ComboBox x:Name="TimeBasisChoice" SelectedIndex="0" SelectionChanged="BackgroundTimeChanged" Margin="0,0,0,8"><ComboBoxItem Content="Live time (khuyến nghị)"/><ComboBoxItem Content="Real time"/></ComboBox>
+      <TextBlock Text="α tự động = thời gian mẫu / thời gian phông" TextWrapping="Wrap"/><TextBox x:Name="ScaleText" IsReadOnly="True" Margin="0,5,0,12"/>
       <CheckBox x:Name="AllowChannelOnly" Margin="0,0,0,12"><TextBlock Text="Nếu thiếu hiệu chuẩn: tôi xác nhận hai phổ dùng cùng cấu hình MCA" TextWrapping="Wrap"/><CheckBox.ToolTip>Chỉ dùng khi đã kiểm tra căn chỉnh kênh của hai phổ.</CheckBox.ToolTip></CheckBox>
       <Button Content="Áp dụng trừ phông" Click="ApplyBackgroundClick" Margin="0,0,0,8"/>
       <Button Content="Bỏ trừ phông" Click="ClearBackgroundClick" Margin="0,0,0,12"/>
-      <TextBlock Text="Net = mẫu − α × phông. Giữ số đếm âm; σ² = mẫu + α² × phông. Hai phổ phải cùng số kênh, hiệu chuẩn lệch không quá 0,05 kênh. Chưa tự rebin hoặc hiệu chỉnh trôi đỉnh." TextWrapping="Wrap"/>
+      <TextBlock Text="Chọn file phông sẽ tự trừ với α theo thời gian. Đổi live/real sẽ tự tính lại. Không sửa file phông gốc. Net = mẫu − α × phông. Giữ số đếm âm; σ² = mẫu + α² × phông. Hai phổ phải cùng số kênh, hiệu chuẩn lệch không quá 0,05 kênh. Chưa tự rebin hoặc hiệu chỉnh trôi đỉnh." TextWrapping="Wrap"/>
      </StackPanel></ScrollViewer>
     </TabItem>
     <TabItem Header="ROI / Gaussian">
@@ -54,16 +60,19 @@
       <Button Content="Xóa ROI đang chọn" Click="RemoveRoiClick" Margin="0,0,0,8"/>
       <Button Content="Xóa tất cả ROI" Click="ClearRoisClick" Margin="0,0,0,8"/>
       <Button Content="Xuất tất cả ROI ra TXT…" Click="ExportRoisClick" Margin="0,0,0,12"/>
-      <TextBlock Text="Fit Gaussian tích phân theo từng kênh + nền tuyến tính; 9–4096 kênh/ROI. Diện tích là toàn Gaussian, sai số 1σ xấp xỉ. Đường đỏ là mô hình fit. ROI lỗi vẫn có trong báo cáo. Với đỉnh chồng hoặc thống kê thấp, cần mô hình phân tích chuyên sâu hơn." TextWrapping="Wrap"/>
+      <TextBlock Text="Tổng gốc/phông/net được cộng trực tiếp trong ROI (bao gồm hai đầu), không trừ nền liên tục. Fit Gaussian + nền tuyến tính cần 9–4096 kênh; ROI nhỏ/lớn hơn vẫn có tổng số đếm. Diện tích là toàn Gaussian, sai số 1σ xấp xỉ. Đường đỏ là mô hình fit. ROI lỗi vẫn có trong báo cáo. Với đỉnh chồng hoặc thống kê thấp, cần mô hình phân tích chuyên sâu hơn." TextWrapping="Wrap"/>
      </StackPanel></ScrollViewer>
     </TabItem>
    </TabControl>
   </Grid>
-  <DataGrid x:Name="RoiGrid" Grid.Row="3" Margin="0,12,0,0" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single">
+  <DataGrid x:Name="RoiGrid" Grid.Row="4" Margin="0,12,0,0" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single" FrozenColumnCount="2">
    <DataGrid.Columns>
     <DataGridTextColumn Header="ROI" Binding="{Binding Id}" Width="40"/>
     <DataGridTextColumn Header="Kênh" Binding="{Binding Bounds}" Width="85"/>
-    <DataGridTextColumn Header="Diện tích ± 1σ" Binding="{Binding Area}" Width="145"/>
+    <DataGridTextColumn Header="Tổng gốc ROI" Binding="{Binding GrossCounts}" Width="110"/>
+    <DataGridTextColumn Header="Phông đã scale" Binding="{Binding BackgroundCounts}" Width="110"/>
+    <DataGridTextColumn Header="Tổng net ± 1σ" Binding="{Binding NetCounts}" Width="145"/>
+    <DataGridTextColumn Header="Gauss ± 1σ" Binding="{Binding Area}" Width="145"/>
     <DataGridTextColumn Header="Đỉnh (ch)" Binding="{Binding Position}" Width="90"/>
     <DataGridTextColumn Header="keV" Binding="{Binding Energy}" Width="85"/>
     <DataGridTextColumn Header="FWHM (ch)" Binding="{Binding Width}" Width="90"/>
@@ -72,6 +81,6 @@
     <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="*" MinWidth="170"/>
    </DataGrid.Columns>
   </DataGrid>
-  <StackPanel Grid.Row="4" Margin="0,10,0,0"><TextBlock x:Name="Status" Text="Ctrl+O: mở file • Shift+kéo: thêm ROI • Kéo: zoom • Home: toàn phổ" TextWrapping="Wrap"/><TextBlock x:Name="Warnings" Foreground="#A45E00" TextWrapping="Wrap"/></StackPanel>
+  <StackPanel Grid.Row="5" Margin="0,10,0,0"><TextBlock x:Name="Status" Text="Ctrl+O: mở file • Shift+kéo: thêm ROI • Kéo: zoom • Home: toàn phổ" TextWrapping="Wrap"/><TextBlock x:Name="Warnings" Foreground="#A45E00" TextWrapping="Wrap"/></StackPanel>
  </Grid>
 </Window>

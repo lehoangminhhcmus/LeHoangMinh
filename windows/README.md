@@ -1,4 +1,4 @@
-# Gamma CNF Reader 0.4.0 — C# / WPF
+# Gamma CNF Reader 0.5.0 — C# / WPF
 
 App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF`. Bản self-contained không cần Python, Genie 2000 hay cài .NET riêng. Mở file, kéo thả hoặc truyền đường dẫn qua dòng lệnh.
 
@@ -6,7 +6,15 @@ App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.C
 
 Tải bộ cài tại [Releases](https://github.com/lehoangminhhcmus/LeHoangMinh/releases). Chạy `GammaCNFReader-CSharp-Setup.exe`, hoặc giải nén ZIP và chạy `GammaCNFReader.exe`. `Install.cmd` cài theo người dùng và tạo shortcut/mục gỡ cài đặt; không cần Administrator. Đóng app trước khi cập nhật/gỡ.
 
-Bản v0.4.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
+Bản v0.5.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
+
+## Chuyển giữa các phổ đang mở (mới ở v0.5.0)
+
+Nút **Mở file…** cho chọn nhiều CNF cùng lúc; có thể kéo thả nhiều file hoặc truyền nhiều đường dẫn khi chạy app. Dùng **◀ Phổ trước / Phổ sau ▶**, danh sách phổ đang mở, hoặc **Ctrl+Tab / Ctrl+Shift+Tab** để chuyển. Tối đa 32 phổ cùng phiên; đường dẫn đầy đủ giúp phân biệt các file trùng tên.
+
+Mỗi phổ giữ riêng: hiệu chuẩn đã áp dụng và các ô hệ số chưa áp dụng, phông/chuẩn hóa thời gian, ROI/kết quả, thang log/keV, vùng zoom, giới hạn ROI đang nhập. Chuyển phổ không đóng hoặc ghi file. Mở lại cùng đường dẫn sẽ chuyển tới bản đang có trong bộ nhớ, không tự nạp lại file ngoài app; muốn đọc lại dữ liệu thay đổi bên ngoài, đóng phổ đó rồi mở lại.
+
+**Đóng phổ này** chỉ đóng phổ được chọn, có xác nhận khi còn hiệu chuẩn chưa lưu hoặc ROI trong phiên. Khi đóng app, hiệu chuẩn chưa lưu của tất cả phổ đều được kiểm tra. Lưu CNF thành tên của một phổ khác đang mở bị chặn để tránh làm dữ liệu trên màn hình sai lệch. Bộ chuẩn hiệu suất vẫn dùng chung trong phiên để gom các điểm từ nhiều phổ đúng hình học.
 
 ## Nhập và lưu đường chuẩn năng lượng
 
@@ -18,20 +26,31 @@ Chỉ ghi trường hệ số/flags/số hệ số trong **ACQP chuẩn POLY/keV
 
 ## Trừ phông
 
-Tab **Trừ phông**: chọn một file phông CNF độc lập, giữ chọn tỷ số thời gian sống hoặc nhập α thủ công, rồi bấm **Áp dụng trừ phông**.
+Tab **Trừ phông**: chọn CNF phông độc lập; app **tự áp dụng ngay** khi đủ điều kiện. Hệ số được tính từ thời gian của **phổ mẫu đang chọn**, không phải phổ mở gần nhất trước đó:
 
-- `α = live_mẫu / live_phông` theo mặc định; thiếu live time hợp lệ thì phải nhập α thủ công.
-- `net[i] = mẫu[i] − α × phông[i]`.
-- `variance[i] = mẫu[i] + α² × phông[i]`, giả định hai phép đo độc lập và α chính xác.
-- Giữ nguyên số đếm âm, không làm tròn về uint32 hoặc ép về 0. Trên thang log, chỉ ẩn điểm ≤ 0 khi vẽ.
-- Hai phổ phải cùng số kênh và lệch hiệu chuẩn không quá 0,05 kênh trên toàn phổ. Chưa tự rebin hay sửa trôi đỉnh. Nếu thiếu hiệu chuẩn, phải xác nhận cùng cấu hình MCA để trừ theo kênh.
-- **Bỏ trừ phông** khôi phục phổ mẫu và tính lại ROI. Khi thay đường chuẩn, app kiểm tra lại tương thích với phông; nếu lệch, bỏ phông trước khi áp dụng.
+- Mặc định dùng **live time**: `α = live_mẫu / live_phông`.
+- Có thể chọn **Real time** một cách rõ ràng: `α = real_mẫu / real_phông`. Thay chế độ sẽ tự tính lại; live time được khuyến nghị vì phù hợp chuẩn hóa số đếm khi có dead time.
+- Ví dụ mẫu live=1.000 s, phông live=500 s: phông được nhân 2; mẫu live=2.000 s dùng cùng phông thì nhân 4. App hiển thị thời gian phông gốc → thời gian mục tiêu cùng α, không sửa thời gian/số đếm trong file CNF phông.
+- Không cần nhập α thủ công. Nếu thời gian thiếu, bằng 0 hoặc không hữu hạn, app báo lỗi thay vì tự dùng α=1. Chọn loại thời gian có dữ liệu hợp lệ hoặc bổ sung thông tin phép đo trước khi trừ.
+- `net[i] = mẫu[i] − α × phông[i]`; `variance[i] = mẫu[i] + α² × phông[i]` với giả định hai phép đo độc lập và α chính xác.
+- Giữ net âm; trên thang log chỉ ẩn điểm ≤0 khi vẽ. File phông trùng chính phép đo mẫu bị từ chối.
+- Hai phổ cần cùng số kênh và lệch hiệu chuẩn không quá 0,05 kênh. Chưa tự rebin/sửa trôi đỉnh. Khi thiếu hiệu chuẩn, cần xác nhận cùng cấu hình MCA rồi bấm **Áp dụng trừ phông** để thử lại.
+- Khi chọn phông mới không hợp lệ, phép trừ hợp lệ trước đó vẫn được giữ; kiểm tra tên phông đang áp dụng ở phần thông tin phổ. **Bỏ trừ phông** bỏ cả phép trừ và file phông đang chọn của phổ này, không ảnh hưởng phổ khác.
 
 CSV chứa kênh, keV, số đếm gốc, phông đã chuẩn hóa, số đếm net và sai số. Xử lý tại máy; không gửi file phổ lên dịch vụ ngoài.
 
 ## ROI và fit đỉnh
 
-Giữ **Shift + kéo** trên phổ để thêm ROI, hoặc vào tab **ROI / Gaussian** nhập kênh đầu/cuối (bao gồm cả hai đầu). Kéo không Shift để zoom; con lăn zoom quanh con trỏ; Home/Toàn phổ để đặt lại. Mỗi ROI từ 9 đến 4096 kênh, tối đa 100 ROI.
+Giữ **Shift + kéo** trên phổ để thêm ROI, hoặc vào tab **ROI / Gaussian** nhập kênh đầu/cuối (bao gồm cả hai đầu). Kéo không Shift để zoom; con lăn zoom quanh con trỏ; Home/Toàn phổ để đặt lại. Mỗi ROI từ 1 kênh đến toàn phổ để cộng số đếm, tối đa 100 ROI; fit Gaussian cần 9–4096 kênh.
+
+Bảng và TXT hiển thị song song:
+
+- **Tổng gốc ROI**: tổng số đếm nguyên của phổ mẫu, gồm cả hai kênh biên (dùng uint64 để tránh tràn).
+- **Phông đã scale**: α nhân tổng số đếm phông trong cùng ROI.
+- **Tổng net ±1σ**: tổng gốc trừ phông đã scale; sai số bằng căn tổng `mẫu[i] + α² phông[i]`. Không có phông thì net bằng tổng gốc, σ=√tổng gốc. Giữ cả giá trị net âm/phân số.
+- **Gauss ±1σ**: diện tích đỉnh thuần theo mô hình fit, như bản trước.
+
+Tổng cộng trực tiếp **chưa trừ nền liên tục**, nên khác với diện tích Gaussian và không tự được dùng thay diện tích fit để tính hiệu suất/hoạt độ. Khi fit thất bại, ROI quá hẹp/rộng cho Gaussian hoặc không có đỉnh, vẫn xem/xuất được các tổng số đếm. TXT thêm các cột `Gross_ROI_sum`, `Scaled_background_ROI_sum`, `Net_ROI_sigma` và thời gian chuẩn hóa phông gốc/mục tiêu; `Net_ROI_sum` vẫn là tổng net trực tiếp.
 
 App fit **một Gaussian tích phân theo từng kênh + nền tuyến tính** bằng bình phương tối thiểu có trọng số; trọng số lấy từ variance ở trên, có sàn 1 khi variance bằng 0. Có thể dùng trên phổ mẫu hoặc phổ sau trừ phông. Các thông số:
 
@@ -41,11 +60,11 @@ App fit **một Gaussian tích phân theo từng kênh + nền tuyến tính** b
 - `FWHM = 2√(2 ln 2) × σ` theo kênh; độ rộng keV bằng hiệu năng lượng tại hai điểm nửa chiều cao, phù hợp cả đường chuẩn phi tuyến.
 - χ²/ν và trạng thái. χ²/ν > 3 được cảnh báo. Fit không hội tụ, ma trận suy biến, diện tích < 3σ hoặc đỉnh chạm giới hạn ROI được báo không đủ điều kiện, không hiển thị số liệu fit như kết quả hợp lệ.
 
-Vùng ROI được tô nền và mô hình fit có đường đỏ. Thay hiệu chuẩn/phông sẽ tính lại tất cả ROI. **Xuất tất cả ROI ra TXT…** xuất báo cáo UTF-8 phân tách bằng tab, có cả ROI thất bại, đường dẫn mẫu/phông, thời gian sống, α, chế độ chuẩn hóa, hệ số hiệu chuẩn và mô tả phương pháp. ROI chỉ tồn tại trong phiên; xuất TXT trước khi đổi phổ/đóng app.
+Vùng ROI được tô nền và mô hình fit có đường đỏ. Thay hiệu chuẩn/phông sẽ tính lại tất cả ROI. **Xuất tất cả ROI ra TXT…** xuất báo cáo UTF-8 phân tách bằng tab, có cả ROI thất bại, đường dẫn mẫu/phông, thời gian sống, α, chế độ chuẩn hóa, hệ số hiệu chuẩn và mô tả phương pháp. ROI giữ riêng khi chuyển phổ trong phiên; xuất TXT trước khi đóng phổ hoặc đóng app.
 
 **Giới hạn:** mô hình đơn Gaussian không tách multiplet/đỉnh chồng, không mô tả tailing phức tạp; fit WLS và sai số chỉ là xấp xỉ, đặc biệt với số đếm thấp. Không tự nhận diện đồng vị hoặc tính hoạt độ. Cần kiểm chứng với phần mềm phân tích chuẩn trước khi dùng kết quả chính thức. Chưa đối chiếu với Genie 2000.
 
-## Chuẩn hiệu suất đỉnh toàn phần (mới ở 0.4.0)
+## Chuẩn hiệu suất đỉnh toàn phần
 
 Mở phổ nguồn chuẩn, áp dụng đúng đường chuẩn năng lượng, trừ phông nếu cần và fit các ROI. Bấm **Hiệu suất / Hoạt độ…**. App không cài sẵn đường hiệu suất hay tự điền hoạt độ/chu kỳ bán rã/xác suất gamma thực tế; các dữ liệu này phải lấy từ chứng chỉ và tài liệu hạt nhân đã kiểm chứng.
 
@@ -117,10 +136,10 @@ Có file mẫu riêng:
 dotnet run --project windows/GammaCnf.Checks -- "D:\Data\Test_spc.cnf"
 ```
 
-105 kiểm tra với file mẫu: đọc CNF, ghi/đọc lại hiệu chuẩn, bảo toàn byte/số đếm, backup/ghi nguyên tử, từ chối file bị đổi bên ngoài, kiểm tra căn chỉnh phông, bảo toàn net âm và variance, khôi phục tham số Gaussian có/không nhiễu và nền nghiêng, cảnh báo đỉnh chồng, từ chối ROI lỗi, xuất CSV/TXT, hiệu suất GLS, phân rã, covariance chung, JSON nháp/đầy đủ, hoạt độ/Bq/kg và các kiểm tra từ chối sai điều kiện. Không đưa file mẫu người dùng vào repository. Không có file mẫu thì chạy 96 kiểm tra chung và báo nhóm mẫu NOT RUN.
+127 kiểm tra với file mẫu: đọc CNF, ghi/đọc lại hiệu chuẩn, bảo toàn byte/số đếm, backup/ghi nguyên tử, từ chối file bị đổi bên ngoài, kiểm tra căn chỉnh phông, bảo toàn net âm và variance, khôi phục tham số Gaussian có/không nhiễu và nền nghiêng, cảnh báo đỉnh chồng, từ chối ROI lỗi, xuất CSV/TXT, hiệu suất GLS, phân rã, covariance chung, JSON nháp/đầy đủ, hoạt độ/Bq/kg và các kiểm tra từ chối sai điều kiện. Không đưa file mẫu người dùng vào repository. Không có file mẫu thì chạy 118 kiểm tra chung và báo nhóm mẫu NOT RUN.
 
-CI Windows xây dựng app, kiểm tra cú pháp script cài, chạy kiểm tra dữ liệu và smoke test WPF với CNF giả lập: mở phổ, hiệu chuẩn, trừ phông, ROI, vẽ log/keV và xuất CSV/TXT/PNG; tạo đường hiệu suất giả lập bằng giao diện, lưu/đọc JSON, vẽ đường chuẩn/phần dư và tính hoạt độ. Kết quả/ảnh nằm trong artifact `WPF-smoke-evidence`. Đây không thay thế kiểm tra thủ công trên PC của bạn hoặc kiểm thử cài/gỡ.
+CI Windows xây dựng app, kiểm tra cú pháp script cài, chạy kiểm tra dữ liệu và smoke test WPF với CNF giả lập: mở phổ, hiệu chuẩn, trừ phông, ROI, vẽ log/keV và xuất CSV/TXT/PNG; tạo đường hiệu suất giả lập bằng giao diện, lưu/đọc JSON, vẽ đường chuẩn/phần dư và tính hoạt độ; mở/chuyển/đóng nhiều phổ, giữ riêng phông/ROI/bản nháp hệ số/log/zoom, tính lại tỷ số thời gian theo từng phổ và kiểm tra các tổng ROI. Kết quả/ảnh nằm trong artifact `WPF-smoke-evidence`. Đây không thay thế kiểm tra thủ công trên PC của bạn hoặc kiểm thử cài/gỡ.
 
-Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo portable exe và Setup.exe. GitHub Actions kiểm tra khi push main; tag `v*` sẽ tạo prerelease nếu các kiểm tra đạt.
+Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo portable exe và Setup.exe. GitHub Actions kiểm tra khi push main; tag `v*` sẽ phát hành bản Latest nếu các kiểm tra đạt.
 
 Phạm vi CNF: một khối SPEC, 1–32.768 kênh uint32; thời gian giữ theo file, không tự suy diễn múi giờ. Tham khảo cấu trúc CAM/CNF: [SpecUtils CAMIO](https://github.com/sandialabs/SpecUtils/blob/master/src/CAMIO.cpp).

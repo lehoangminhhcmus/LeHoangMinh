@@ -33,6 +33,13 @@ public sealed class SpectrumPlot : FrameworkElement
         left = 0; right = Math.Max(1, (Spectrum?.Counts.Length ?? 2) - 1);
         selection = null; ReleaseMouseCapture(); InvalidateVisual();
     }
+    public (double Left,double Right) Viewport=>(left,right);
+    public void RestoreViewport((double Left,double Right) view)
+    {
+        double end=Math.Max(1,(Spectrum?.Counts.Length??2)-1);
+        if(!double.IsFinite(view.Left)||!double.IsFinite(view.Right)||view.Left<0||view.Right>end||view.Right<=view.Left){Reset();return;}
+        left=view.Left;right=view.Right;selection=null;ReleaseMouseCapture();InvalidateVisual();
+    }
     private double XValue(double channel) => EnergyAxis ? Spectrum?.Energy(channel) ?? channel : channel;
     private double PixelChannel(double pixel) => left + Math.Clamp((pixel-Area.Left)/Area.Width, 0, 1) * (right-left);
     // X pixel mapping uses actual calibrated energies (including quadratic/cubic terms).

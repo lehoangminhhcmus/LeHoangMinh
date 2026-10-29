@@ -78,7 +78,7 @@ internal static class AnalysisChecks
             var overlap=RoiAnalysis.Fit(new AnalysisSession(sample with{Counts=doubled}),new(270,330));
             check(!overlap.Success||overlap.ReducedChiSquare>3,"Overlapping peaks rejected or flagged as poor fit");
             check(!RoiAnalysis.Fit(session,new(298,308)).Success,"Reject truncated peak touching ROI boundary");
-            Reject(()=>AnalysisSession.LiveTimeScale(sample with{LiveTime=null},bg),"Missing live time requires manual scale");
+            Reject(()=>AnalysisSession.LiveTimeScale(sample with{LiveTime=null},bg),"Missing live time requires explicit valid normalization");
 
             check(Math.Abs(fit.FwhmKeV!.Value-fit.FwhmChannels.Value*.5)<1e-7,"FWHM energy conversion");
             check(!RoiAnalysis.Fit(session,new(300,304)).Success,"Reject undersized ROI");

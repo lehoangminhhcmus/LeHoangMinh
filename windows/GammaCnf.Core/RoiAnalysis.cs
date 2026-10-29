@@ -7,7 +7,7 @@ public sealed record RoiRange(int Start,int End);
 public sealed record RoiResult(RoiRange Range,bool Success,string Status,double NetRoiSum,
     double? PeakArea=null,double? AreaError=null,double? AreaWithinRoi=null,double? Centroid=null,
     double? CentroidError=null,double? FwhmChannels=null,double? FwhmKeV=null,double? EnergyKeV=null,
-    double? ReducedChiSquare=null,double[]? Parameters=null)
+    double? ReducedChiSquare=null,double[]? Parameters=null,RoiCountSummary? Counts=null)
 {
     public double Model(double channel) => Parameters is { } p ? RoiAnalysis.Model(p,channel,(Range.Start+Range.End)/2.0) : double.NaN;
 }
@@ -47,11 +47,14 @@ public static class RoiAnalysis
     public static RoiResult Fit(AnalysisSession session,RoiRange roi)
     {
         var y=session.Values;var variance=session.Variances;
-        if(roi.Start<0||roi.End>=y.Length||roi.End-roi.Start<8||roi.End-roi.Start>4095)
-            return new(roi,false,"ROI phải có 9–4096 kênh và nằm trong phổ.",0);
+        if(roi.Start<0||roi.End<roi.Start||roi.End>=y.Length)
+            return new(roi,false,"ROI không nằm trong phổ hoặc bị đảo.",0);
+        var counts=RoiCountSummary.Calculate(session,roi);
+        double net=counts.Net;
+        RoiResult Fail(string message)=>new(roi,false,message,net,Counts:counts);
+        if(roi.End-roi.Start<8||roi.End-roi.Start>4095)
+            return Fail("Có tổng số đếm; fit Gaussian cần 9–4096 kênh.");
         int n=roi.End-roi.Start+1;double mid=(roi.Start+roi.End)/2.0;
-        double net=0;for(int i=roi.Start;i<=roi.End;i++)net+=y[i];
-        RoiResult Fail(string message)=>new(roi,false,message,net);
         double low=Enumerable.Range(roi.Start,3).Average(i=>y[i]),high=Enumerable.Range(roi.End-2,3).Average(i=>y[i]);
         double slope=(high-low)/(n-3), baseline=(low+high)/2;
         double area=0, highest=double.NegativeInfinity;int peak=roi.Start;
@@ -113,7 +116,7 @@ public static class RoiAnalysis
         double? width=e.HasValue ? session.Sample.Energy(p[1]+fwhm/2)-session.Sample.Energy(p[1]-fwhm/2) : null;
         string status=reduced>3 ? "Cảnh báo: χ²/ν > 3; có thể có đỉnh chồng hoặc mô hình nền không phù hợp." : "Fit hội tụ";
         return new(roi,true,status,net,p[0],areaError,p[0]*(Cdf((roi.End+.5-p[1])/p[2])-Cdf((roi.Start-.5-p[1])/p[2])),
-            p[1],Math.Sqrt(covariance[1,1]),fwhm,width,e,reduced,p);
+            p[1],Math.Sqrt(covariance[1,1]),fwhm,width,e,reduced,p,counts);
     }
 
     public static void ExportReport(string path,AnalysisSession session,string samplePath,string? backgroundPath,string scaleMode,IEnumerable<RoiResult> results)
@@ -121,17 +124,18 @@ public static class RoiAnalysis
         using var w=new StreamWriter(path,false,new UTF8Encoding(true));
         string F(double? x)=>x?.ToString("G12",CultureInfo.InvariantCulture)??"NA";
         string Clean(string s)=>s.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
-        w.WriteLine("Gamma CNF Reader 0.4.0 — ROI report (UTF-8, tab separated)");
+        w.WriteLine("Gamma CNF Reader 0.5.0 — ROI report (UTF-8, tab separated)");
         w.WriteLine("Exported_UTC\t"+DateTime.UtcNow.ToString("O",CultureInfo.InvariantCulture));
         w.WriteLine("Sample\t"+Clean(samplePath));w.WriteLine("Sample_live_seconds\t"+F(session.Sample.LiveTime));
         w.WriteLine("Background\t"+Clean(backgroundPath??"None"));w.WriteLine("Background_live_seconds\t"+F(session.Background?.LiveTime));
-        w.WriteLine("Background_scale\t"+F(session.Scale));w.WriteLine("Scale_mode\t"+Clean(scaleMode));
+        w.WriteLine("Background_scale\t"+F(session.Scale));
+        w.WriteLine("Background_original_seconds\t"+F(session.BackgroundOriginalSeconds));w.WriteLine("Background_target_seconds\t"+F(session.BackgroundTargetSeconds));w.WriteLine("Scale_mode\t"+Clean(scaleMode));
         w.WriteLine("Channel_only_background_confirmed\t"+session.ChannelOnlyBackground);
         w.WriteLine("Calibration_a0_a1_a2_a3_keV\t"+(session.Sample.Calibration is null?"NA":string.Join("\t",session.Sample.Calibration.Select(x=>F(x)))));
         w.WriteLine("Method\tWeighted least squares: bin-integrated single Gaussian + linear continuum. Channels start at 0; ROI bounds inclusive.");
         w.WriteLine("Variance\tsample + scale^2 * background; floor 1 for fitting. Scale treated as exact. Errors: approximate 1-sigma covariance; low-count spectra may need Poisson methods.");
-        w.WriteLine("Peak_area\tFull fitted Gaussian area; Area_in_ROI excludes fitted tails outside ROI. Net_ROI_sum includes residual continuum. Unresolved multiplets are not separated.");
-        w.WriteLine("ID\tStart_channel\tEnd_channel\tSuccess\tNet_ROI_sum\tPeak_area\tArea_1sigma\tArea_in_ROI\tCentroid_channel\tCentroid_1sigma\tEnergy_keV\tFWHM_channel\tFWHM_keV\tChi2_per_dof\tStatus");
-        int id=0;foreach(var r in results)w.WriteLine(string.Join("\t",++id,r.Range.Start,r.Range.End,r.Success,F(r.NetRoiSum),F(r.PeakArea),F(r.AreaError),F(r.AreaWithinRoi),F(r.Centroid),F(r.CentroidError),F(r.EnergyKeV),F(r.FwhmChannels),F(r.FwhmKeV),F(r.ReducedChiSquare),Clean(r.Status)));
+        w.WriteLine("Peak_area\tFull fitted Gaussian area; Area_in_ROI excludes fitted tails outside ROI. Gross_ROI_sum is the raw sample sum; scaled background and net sums are direct inclusive channel sums with no continuum removal. Net_ROI_sum includes residual continuum. Unresolved multiplets are not separated.");
+        w.WriteLine("ID\tStart_channel\tEnd_channel\tSuccess\tNet_ROI_sum\tPeak_area\tArea_1sigma\tArea_in_ROI\tCentroid_channel\tCentroid_1sigma\tEnergy_keV\tFWHM_channel\tFWHM_keV\tChi2_per_dof\tStatus\tGross_ROI_sum\tScaled_background_ROI_sum\tNet_ROI_sigma");
+        int id=0;foreach(var r in results)w.WriteLine(string.Join("\t",++id,r.Range.Start,r.Range.End,r.Success,F(r.NetRoiSum),F(r.PeakArea),F(r.AreaError),F(r.AreaWithinRoi),F(r.Centroid),F(r.CentroidError),F(r.EnergyKeV),F(r.FwhmChannels),F(r.FwhmKeV),F(r.ReducedChiSquare),Clean(r.Status),r.Counts?.Gross.ToString(CultureInfo.InvariantCulture)??"NA",F(r.Counts?.ScaledBackground),F(r.Counts?.NetSigma)));
     }
 }

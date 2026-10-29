@@ -1,7 +1,7 @@
 [Setup]
 AppId={{0913EDC8-A1FD-47CD-BCC1-401887F22915}
 AppName=Gamma CNF Reader
-AppVersion=0.4.0
+AppVersion=0.5.0
 DefaultDirName={localappdata}\Programs\GammaCNFReader-CSharp
 DefaultGroupName=Gamma CNF Reader (C#)
 PrivilegesRequired=lowest

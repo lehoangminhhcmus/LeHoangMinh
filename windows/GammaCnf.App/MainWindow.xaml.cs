@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -15,6 +16,9 @@ public sealed record RoiRow(int Id,RoiResult Result)
     private static string F(double? v)=>v?.ToString("N3")??"—";
     public string Bounds=>$"{Result.Range.Start}–{Result.Range.End}";
     public string Area=>Result.Success?$"{F(Result.PeakArea)} ± {F(Result.AreaError)}":"—";
+    public string GrossCounts=>Result.Counts?.Gross.ToString("N0")??"—";
+    public string BackgroundCounts=>F(Result.Counts?.ScaledBackground);
+    public string NetCounts=>Result.Counts is {} c?$"{F(c.Net)} ± {F(c.NetSigma)}":"—";
     public string Position=>F(Result.Centroid);
     public string Energy=>F(Result.EnergyKeV);
     public string Width=>F(Result.FwhmChannels);
@@ -25,20 +29,26 @@ public sealed record RoiRow(int Id,RoiResult Result)
 public partial class MainWindow : Window
 {
     private readonly EfficiencyWorkspace efficiencyWorkspace=new();
-    private AnalysisSession? session;
-    private string? currentPath,backgroundPath,pendingBackgroundPath;
-    private Spectrum? pendingBackground;
-    private byte[]? originalBytes;
-    private bool calibrationDirty;
-    private string scaleMode="None";
-    private readonly List<RoiRange> ranges=[];
+    private readonly ObservableCollection<OpenSpectrum> documents=[];
+    private OpenSpectrum? active;
+    private bool restoringView;
+    private AnalysisSession? session=>active?.Session;
+    private string? currentPath {get=>active?.Path;set{if(active is not null&&value is not null)active.Path=value;}}
+    private string? backgroundPath {get=>active?.BackgroundPath;set{if(active is not null)active.BackgroundPath=value;}}
+    private string? pendingBackgroundPath {get=>active?.PendingBackgroundPath;set{if(active is not null)active.PendingBackgroundPath=value;}}
+    private Spectrum? pendingBackground {get=>active?.PendingBackground;set{if(active is not null)active.PendingBackground=value;}}
+    private byte[]? originalBytes {get=>active?.OriginalBytes;set{if(active is not null&&value is not null)active.OriginalBytes=value;}}
+    private bool calibrationDirty {get=>active?.CalibrationDirty??false;set{if(active is not null)active.CalibrationDirty=value;}}
+    private string scaleMode {get=>active?.ScaleMode??"None";set{if(active is not null)active.ScaleMode=value;}}
+    private readonly List<RoiRange> emptyRanges=[];
+    private List<RoiRange> ranges=>active?.Ranges??emptyRanges;
     private readonly ObservableCollection<RoiRow> rows=[];
     public MainWindow()
     {
-        InitializeComponent();RoiGrid.ItemsSource=rows;
+        InitializeComponent();RoiGrid.ItemsSource=rows;OpenedSpectra.ItemsSource=documents;
         Plot.HoverChanged+=text=>Status.Text=text;
         Plot.RoiSelected+=(a,b)=>AddRoi(a,b);
-        Loaded+=(_,_)=> { var args=Environment.GetCommandLineArgs();if(args.Length>1&&!args[1].StartsWith("--"))LoadFile(args[1]); };
+        Loaded+=(_,_)=> { var args=Environment.GetCommandLineArgs();if(args.Length>1&&!args[1].StartsWith("--"))foreach(var file in args.Skip(1))LoadFile(file); };
     }
     private static byte[] ReadBytes(string path)
     {
@@ -61,7 +71,9 @@ public partial class MainWindow : Window
     private bool ConfirmUnsaved()=>!calibrationDirty||MessageBox.Show(this,"Hiệu chuẩn chưa lưu vào CNF. Tiếp tục bỏ thay đổi chưa lưu?","Hiệu chuẩn chưa lưu",MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
     protected override void OnClosing(CancelEventArgs e)
     {
-        if(!ConfirmUnsaved())e.Cancel=true;
+        CaptureCurrentView();
+        var dirty=documents.Where(d=>d.CalibrationDirty).Select(d=>Path.GetFileName(d.Path)).ToArray();
+        if(dirty.Length>0&&MessageBox.Show(this,"Các phổ chưa lưu hiệu chuẩn: "+string.Join(", ",dirty)+". Vẫn đóng app?","Hiệu chuẩn chưa lưu",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
         if(!e.Cancel&&efficiencyWorkspace.Dirty&&MessageBox.Show(this,"Điểm/bộ chuẩn hiệu suất chưa lưu JSON và sẽ mất khi đóng app. Vẫn đóng?","Chưa lưu chuẩn hiệu suất",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
         base.OnClosing(e);
     }
@@ -73,7 +85,7 @@ public partial class MainWindow : Window
         A0.Text="1.2";A1.Text="0.51";A2.Text="0";A3.Text="0";ApplyCalibration();
         if(Math.Abs(session.Sample.Energy(100)!.Value-52.2)>1e-9)throw new Exception("Calibration UI failed.");
         pendingBackground=session.Sample with {Counts=Enumerable.Repeat(100u,session.Values.Length).ToArray(),LiveTime=500};
-        pendingBackgroundPath="synthetic-background.cnf";UseLiveScale.IsChecked=true;
+        pendingBackgroundPath="synthetic-background.cnf";TimeBasisChoice.SelectedIndex=0;
         ApplyBackgroundClick(this,new RoutedEventArgs());
         if(session.Values[0]>=0||session.Scale!=2)throw new Exception("Background UI failed.");
         AddRoi(270,330);
@@ -89,6 +101,41 @@ public partial class MainWindow : Window
         calibrationDirty=false;
         var efficiencyWindow=new EfficiencyWindow(session,rows.Select(r=>r.Result).ToArray(),path,"SYNTHETIC-UI-MEASUREMENT",null,new EfficiencyWorkspace()){Owner=this};
         try{efficiencyWindow.Show();efficiencyWindow.RunSmokeChecks(directory);}finally{efficiencyWindow.Close();}
+        var first=active??throw new Exception("No active spectrum in multi-spectrum smoke check.");
+        var sharedBackground=session.Sample with{Counts=Enumerable.Repeat(100u,session.Values.Length).ToArray(),LiveTime=500};
+        pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
+        double firstNet=session.Values[0];A0.Text="first unapplied draft";first.CalibrationDirty=true;
+        LogCheck.IsChecked=true;Plot.RestoreViewport((250,350));
+        // New measurement with twice the live time and a different real time.
+        byte[] other=(byte[])originalBytes!.Clone();
+        for(int i=0;i<28;i++)
+        {
+            int entry=0x70+48*i;
+            if(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(other.AsSpan(entry,4))!=0x12000)continue;
+            int p=(int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(other.AsSpan(entry+10,4));
+            int time=p+0x30+System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(other.AsSpan(p+0x24,2));
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(other.AsSpan(time+9,8),-2200L*10000000);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(other.AsSpan(time+17,8),-2000L*10000000);
+        }
+        other=CnfCalibration.Patch(other,first.Session.Sample.Calibration!);
+        string otherPath=Path.Combine(directory,"second-spectrum.cnf");File.WriteAllBytes(otherPath,other);LoadFile(otherPath);
+        var second=active??throw new Exception("Second spectrum did not open.");
+        if(documents.Count!=2||ReferenceEquals(first,second)||ranges.Count!=0||session!.Background is not null)throw new Exception("New spectrum inherited another spectrum's analysis.");
+        pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
+        if(session.Scale!=4||session.BackgroundTargetSeconds!=2000)throw new Exception("Automatic background time normalization not recomputed for second spectrum.");
+        AddRoi(390,410);A0.Text="second unapplied draft";
+        PreviousSpectrumClick(this,new RoutedEventArgs());
+        if(active!=first||session!.Scale!=2||session.Values[0]!=firstNet||A0.Text!="first unapplied draft"||!calibrationDirty||ranges.Count!=1||ranges[0].Start!=270||LogCheck.IsChecked!=true||Plot.Viewport!=(250d,350d))throw new Exception("First spectrum state was not restored.");
+        NextSpectrumClick(this,new RoutedEventArgs());
+        if(active!=second||A0.Text!="second unapplied draft"||ranges.Count!=1||ranges[0].Start!=390||session!.Scale!=4)throw new Exception("Second spectrum state was not restored.");
+        LoadFile(otherPath);if(documents.Count!=2)throw new Exception("Opening the same path created a duplicate document.");
+        TimeBasisChoice.SelectedIndex=1;
+        if(Math.Abs(session!.Scale-2200/sharedBackground.RealTime!.Value)>1e-9||session.TimeBasis!=BackgroundTimeBasis.RealTime)throw new Exception("Changing time basis did not automatically update background.");
+        var counts=rows.Single().Result.Counts??throw new Exception("ROI counts missing from UI.");
+        if(counts.Gross!=2100||counts.Net>=0||string.IsNullOrWhiteSpace(rows[0].NetCounts)||rows[0].GrossCounts=="—")throw new Exception("ROI sums in multi-spectrum UI failed.");
+        CloseDocument(second);if(active!=first||documents.Count!=1||session!.Scale!=2)throw new Exception("Closing a spectrum lost the other document.");
+        first.CalibrationDirty=false;CloseDocument(first);if(active is not null||documents.Count!=0||Plot.Spectrum is not null)throw new Exception("Closing final spectrum did not clear the UI.");
+        File.WriteAllText(Path.Combine(directory,"multi-spectrum-success.txt"),"PASS: multi-open/deduplicate/previous/next/close; per-spectrum ROI, calibration drafts, background/time scale, log view and zoom; direct ROI totals");
     }
     private void EfficiencyClick(object sender,RoutedEventArgs e)=>Execute(()=>
     {
@@ -99,19 +146,72 @@ public partial class MainWindow : Window
     });
     private void OpenClick(object sender,RoutedEventArgs e)
     {
-        var d=new OpenFileDialog { Filter="Canberra CNF (*.cnf)|*.cnf|Tất cả file (*.*)|*.*" };
-        if(d.ShowDialog(this)==true)LoadFile(d.FileName);
+        var d=new OpenFileDialog { Filter="Canberra CNF (*.cnf)|*.cnf|Tất cả file (*.*)|*.*",Multiselect=true };
+        if(d.ShowDialog(this)==true)foreach(var file in d.FileNames)LoadFile(file);
     }
     private void LoadFile(string path)=>Execute(()=>
     {
-        var bytes=ReadBytes(path);var sample=CnfReader.Decode(bytes);
-        if(!ConfirmUnsaved())return;
-        session=new AnalysisSession(sample);originalBytes=bytes;currentPath=Path.GetFullPath(path);
-        pendingBackground=null;pendingBackgroundPath=backgroundPath=null;calibrationDirty=false;scaleMode="None";
-        ranges.Clear();rows.Clear();PendingBackgroundLabel.Text="Chưa chọn file";
-        SetCoefficientFields();EnergyCheck.IsChecked=sample.Calibration is not null;
-        CsvButton.IsEnabled=PngButton.IsEnabled=true;Refresh(true);
+        string full=Path.GetFullPath(path);
+        var existing=documents.FirstOrDefault(d=>string.Equals(d.Path,full,StringComparison.OrdinalIgnoreCase));
+        if(existing is not null){Activate(existing);Status.Text="Đã chuyển tới phổ đang mở: "+full;return;}
+        if(documents.Count>=32)throw new CnfException("Tối đa 32 phổ đang mở. Đóng bớt phổ trước khi mở thêm.");
+        var bytes=ReadBytes(full);var sample=CnfReader.Decode(bytes);var document=new OpenSpectrum(full,bytes,sample);
+        documents.Add(document);Activate(document);Status.Text=$"Đang mở {documents.Count} phổ. Dùng Phổ trước/Phổ sau hoặc danh sách để chuyển.";
     });
+    private void CaptureCurrentView()
+    {
+        if(active is null)return;var view=active.View;
+        view.Coefficients=[A0.Text,A1.Text,A2.Text,A3.Text];view.Energy=EnergyCheck.IsChecked==true;view.Log=LogCheck.IsChecked==true;
+        view.TimeBasis=TimeBasisChoice.SelectedIndex;view.AllowChannelOnly=AllowChannelOnly.IsChecked==true;
+        view.RoiStart=RoiStart.Text;view.RoiEnd=RoiEnd.Text;view.Viewport=Plot.Viewport;view.SelectedRoi=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
+    }
+    private void Activate(OpenSpectrum document)
+    {
+        if(ReferenceEquals(active,document))return;
+        CaptureCurrentView();active=document;restoringView=true;
+        try
+        {
+            var view=document.View;SetCoefficientFields();
+            if(view.Coefficients.Length==4){A0.Text=view.Coefficients[0];A1.Text=view.Coefficients[1];A2.Text=view.Coefficients[2];A3.Text=view.Coefficients[3];}
+            EnergyCheck.IsChecked=view.Energy;LogCheck.IsChecked=view.Log;TimeBasisChoice.SelectedIndex=view.TimeBasis;AllowChannelOnly.IsChecked=view.AllowChannelOnly;
+            RoiStart.Text=view.RoiStart;RoiEnd.Text=view.RoiEnd;
+            PendingBackgroundLabel.Text=pendingBackgroundPath is null?"Chưa chọn file":Path.GetFileName(pendingBackgroundPath)+$" • live: {pendingBackground?.LiveTime?.ToString("N3")??"NA"} s • real: {pendingBackground?.RealTime?.ToString("N3")??"NA"} s";
+            ScaleText.Text=session?.Background is null?"":F(session.Scale);
+            CsvButton.IsEnabled=PngButton.IsEnabled=true;Refresh();
+            if(view.Viewport is {} viewport)Plot.RestoreViewport(viewport);else Plot.Reset();
+            if(view.SelectedRoi is {} roi)RoiGrid.SelectedItem=rows.FirstOrDefault(r=>r.Result.Range==roi);
+            OpenedSpectra.SelectedItem=document;UpdateDocumentButtons();
+        }
+        finally{restoringView=false;}
+    }
+    private void UpdateDocumentButtons()
+    {PreviousButton.IsEnabled=NextButton.IsEnabled=documents.Count>1;CloseSpectrumButton.IsEnabled=documents.Count>0;}
+    private void OpenedSpectrumChanged(object sender,SelectionChangedEventArgs e)
+    {if(!restoringView&&OpenedSpectra.SelectedItem is OpenSpectrum document)Activate(document);}
+    private void StepSpectrum(int offset)
+    {if(documents.Count>1&&active is not null)Activate(documents[(documents.IndexOf(active)+offset+documents.Count)%documents.Count]);}
+    private void PreviousSpectrumClick(object sender,RoutedEventArgs e)=>StepSpectrum(-1);
+    private void NextSpectrumClick(object sender,RoutedEventArgs e)=>StepSpectrum(1);
+    private void CloseSpectrumClick(object sender,RoutedEventArgs e)
+    {
+        if(active is null||!ConfirmUnsaved())return;
+        if(ranges.Count>0&&MessageBox.Show(this,"Đóng phổ sẽ bỏ các ROI trong phiên của phổ này. Tiếp tục?","Đóng phổ",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
+        CloseDocument(active);
+    }
+    private void CloseDocument(OpenSpectrum document)
+    {
+        int index=documents.IndexOf(document);restoringView=true;
+        try{if(ReferenceEquals(active,document))active=null;documents.Remove(document);OpenedSpectra.SelectedItem=null;}
+        finally{restoringView=false;}
+        if(documents.Count>0)Activate(documents[Math.Clamp(index,0,documents.Count-1)]);
+        else
+        {
+            rows.Clear();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.Reset();
+            FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
+            PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
+            Title="Gamma CNF Reader 0.5.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+        }
+    }
     private void SetCoefficientFields()
     {
         var c=session?.Sample.Calibration??[0,1,0,0];
@@ -121,12 +221,12 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.4.0";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.5.0";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
         CalibrationLabel.Text=(calibrationDirty?"[Chưa lưu CNF] ":"")+(s.Calibration is null?"Chỉ hiển thị kênh.":"E(ch), keV: "+string.Join("   ",s.Calibration.Select((c,i)=>$"a{i} = {c:G9}")));
-        BackgroundLabel.Text=session.Background is null?"Chưa trừ phông":$"Phông: {Path.GetFileName(backgroundPath)}   •   α = {session.Scale:G9} ({scaleMode})   •   Tổng net: {session.Values.Sum():N3}";
+        BackgroundLabel.Text=session.Background is null?"Chưa trừ phông":$"Phông: {Path.GetFileName(backgroundPath)}   •   {session.BackgroundOriginalSeconds:N3} → {session.BackgroundTargetSeconds:N3} s   •   α = {session.Scale:G9} ({scaleMode})   •   Tổng net: {session.Values.Sum():N3}";
         EnergyCheck.IsEnabled=s.Calibration is not null;
         Plot.Spectrum=s;Plot.Values=session.Values;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;
         Refit();if(reset)Plot.Reset();else Plot.InvalidateVisual();
@@ -157,36 +257,43 @@ public partial class MainWindow : Window
         bool same=string.Equals(Path.GetFullPath(d.FileName),currentPath,StringComparison.OrdinalIgnoreCase);
         string warning=(same?"Ghi chồng hiệu chuẩn lên CNF gốc; app sẽ tạo file .bak. ":"Lưu CNF với hiệu chuẩn mới. ")+"Số đếm không đổi. Các kết quả phân tích cũ trong CNF không được tính lại và có thể không còn phù hợp. Tiếp tục?";
         if(MessageBox.Show(this,warning,"Lưu hiệu chuẩn CNF",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+        if(documents.Any(other=>!ReferenceEquals(other,active)&&string.Equals(other.Path,Path.GetFullPath(d.FileName),StringComparison.OrdinalIgnoreCase)))throw new CnfException("Đích đang là một phổ khác được mở. Chọn tên mới hoặc đóng phổ đích trước.");
         string? backup=CnfCalibration.Save(d.FileName,originalBytes,session.Sample.Calibration!,same);
         originalBytes=ReadBytes(d.FileName);currentPath=Path.GetFullPath(d.FileName);
         session.SetCalibration(CnfReader.Decode(originalBytes).Calibration!);calibrationDirty=false;SetCoefficientFields();Refresh();
         Status.Text="Đã lưu CNF; "+(backup is null?"file mới.":"bản sao lưu: "+backup);
     });
+    private BackgroundTimeBasis SelectedTimeBasis=>TimeBasisChoice.SelectedIndex==1?BackgroundTimeBasis.RealTime:BackgroundTimeBasis.LiveTime;
     private void BackgroundClick(object sender,RoutedEventArgs e)=>Execute(()=>
     {
         if(session is null)throw new CnfException("Mở phổ mẫu trước.");
         var d=new OpenFileDialog { Filter="Canberra CNF (*.cnf)|*.cnf" };
         if(d.ShowDialog(this)!=true)return;
         if(string.Equals(Path.GetFullPath(d.FileName),currentPath,StringComparison.OrdinalIgnoreCase))throw new CnfException("Chọn file phông là phép đo độc lập với phổ mẫu.");
-        var bg=CnfReader.Read(d.FileName);pendingBackground=bg;pendingBackgroundPath=d.FileName;
-        PendingBackgroundLabel.Text=Path.GetFileName(d.FileName)+$" • live: {bg.LiveTime?.ToString("N3")??"NA"} s";
-        if(session.Sample.LiveTime>0&&bg.LiveTime>0)ScaleText.Text=F(AnalysisSession.LiveTimeScale(session.Sample,bg));
-        else { UseLiveScale.IsChecked=false;Status.Text="Thiếu live time. Nhập α thủ công và bấm Áp dụng trừ phông."; }
+        var bg=CnfReader.Read(d.FileName);
+        if(MeasurementIdentity.Create(bg)==MeasurementIdentity.Create(session.Sample))throw new CnfException("Phổ phông trùng phép đo mẫu; cần phép đo phông độc lập.");
+        pendingBackground=bg;pendingBackgroundPath=d.FileName;
+        PendingBackgroundLabel.Text=Path.GetFileName(d.FileName)+$" • live: {bg.LiveTime?.ToString("N3")??"NA"} s • real: {bg.RealTime?.ToString("N3")??"NA"} s";
+        Status.Text="Đã chọn phông. Nếu chưa áp dụng được, kiểm tra thời gian/hiệu chuẩn và bấm Áp dụng trừ phông.";
+        ApplyBackground();
     });
-    private void ApplyBackgroundClick(object sender,RoutedEventArgs e)=>Execute(()=>
+    private void ApplyBackground()
     {
         if(session is null||pendingBackground is null)throw new CnfException("Chọn phổ mẫu và phổ phông trước.");
-        double scale=UseLiveScale.IsChecked==true?AnalysisSession.LiveTimeScale(session.Sample,pendingBackground):Number(ScaleText.Text);
-        session.SetBackground(pendingBackground,scale,AllowChannelOnly.IsChecked==true);
-        backgroundPath=pendingBackgroundPath;scaleMode=UseLiveScale.IsChecked==true?"Live-time ratio":"Manual";
-        ScaleText.Text=F(scale);Refresh();Status.Text="Đã trừ phông và tính lại các ROI. Số đếm âm được giữ nguyên.";
-    });
+        session.SetTimedBackground(pendingBackground,SelectedTimeBasis,AllowChannelOnly.IsChecked==true);
+        backgroundPath=pendingBackgroundPath;scaleMode=SelectedTimeBasis==BackgroundTimeBasis.LiveTime?"Automatic live-time ratio":"Automatic real-time ratio";
+        ScaleText.Text=F(session.Scale);Refresh();
+        Status.Text=$"Đã tự scale phông từ {session.BackgroundOriginalSeconds:N3} s về {session.BackgroundTargetSeconds:N3} s (α={session.Scale:G9}); không sửa CNF phông gốc.";
+    }
+    private void ApplyBackgroundClick(object sender,RoutedEventArgs e)=>Execute(ApplyBackground);
+    private void BackgroundTimeChanged(object sender,SelectionChangedEventArgs e)
+    {if(!restoringView&&session is not null&&pendingBackground is not null)Execute(ApplyBackground);}
     private void ClearBackgroundClick(object sender,RoutedEventArgs e)
-    { if(session is null)return;session.ClearBackground();backgroundPath=null;scaleMode="None";Refresh();Status.Text="Đã bỏ trừ phông và tính lại ROI."; }
+    { if(session is null)return;session.ClearBackground();backgroundPath=null;pendingBackground=null;pendingBackgroundPath=null;scaleMode="None";ScaleText.Text="";PendingBackgroundLabel.Text="Chưa chọn file";Refresh();Status.Text="Đã bỏ trừ phông và tính lại ROI."; }
     private void AddRoi(int start,int end)=>Execute(()=>
     {
         if(session is null)throw new CnfException("Mở phổ trước.");
-        if(start<0||end>=session.Values.Length||end-start<8||end-start>4095)throw new CnfException("ROI cần 9–4096 kênh và nằm trong phổ.");
+        if(start<0||end<start||end>=session.Values.Length)throw new CnfException("ROI cần nằm trong phổ, kênh đầu ≤ kênh cuối.");
         if(ranges.Count>=100)throw new CnfException("Giới hạn 100 ROI mỗi phiên.");
         if(ranges.Contains(new RoiRange(start,end)))throw new CnfException("ROI này đã tồn tại.");
         ranges.Add(new(start,end));RoiStart.Text=start.ToString();RoiEnd.Text=end.ToString();Refit();Status.Text=$"Đã thêm ROI {ranges.Count}.";
@@ -222,15 +329,16 @@ public partial class MainWindow : Window
         using var output=File.Create(d.FileName);encoder.Save(output);Status.Text="Đã lưu: "+d.FileName;
     });
     private void ModeChanged(object sender,RoutedEventArgs e)
-    { if(Plot is null)return;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;Plot.Reset(); }
+    { if(Plot is null||restoringView)return;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;Plot.Reset(); }
     private void ResetClick(object sender,RoutedEventArgs e)=>Plot.Reset();
     private void OnDragOver(object sender,DragEventArgs e)
     {e.Effects=e.Data.GetDataPresent(DataFormats.FileDrop)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;}
     private void OnDrop(object sender,DragEventArgs e)
-    {if(e.Data.GetData(DataFormats.FileDrop) is string[] {Length:>0} paths)LoadFile(paths[0]);}
+    {if(e.Data.GetData(DataFormats.FileDrop) is string[] {Length:>0} paths)foreach(var file in paths)LoadFile(file);}
     private void OnKeyDown(object sender,KeyEventArgs e)
     {
         if(e.Key==Key.O&&Keyboard.Modifiers.HasFlag(ModifierKeys.Control)){OpenClick(sender,e);e.Handled=true;}
+        if(e.Key==Key.Tab&&Keyboard.Modifiers.HasFlag(ModifierKeys.Control)){StepSpectrum(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)?-1:1);e.Handled=true;}
         if(e.Key==Key.Home){Plot.Reset();e.Handled=true;}
     }
 }
