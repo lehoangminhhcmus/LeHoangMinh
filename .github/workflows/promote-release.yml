@@ -1,0 +1,40 @@
+name: Set release as latest
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to promote
+        required: true
+        type: string
+  push:
+    tags: ['promote-v*']
+permissions:
+  contents: write
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify assets and set official latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          TRIGGER_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$REQUESTED_TAG"
+          if [ -z "$tag" ]; then tag="${TRIGGER_TAG#promote-}"; fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Expected a version such as v0.4.0'; exit 1
+          fi
+          assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          for expected in GammaCNFReader-CSharp-Setup.exe GammaCNFReader-CSharp-Windows-x64.zip; do
+            if ! grep -Fxq "$expected" <<< "$assets"; then echo "Missing release asset: $expected"; exit 1; fi
+          done
+          gh release edit "$tag" --draft=false --prerelease=false --latest \
+            --title "Gamma CNF Reader $tag (Windows x64)" --notes-file windows/RELEASE_NOTES.md
+          latest=$(gh api "repos/$GH_REPO/releases/latest" --jq '.tag_name')
+          if [ "$latest" != "$tag" ]; then echo "Unexpected latest release: $latest"; exit 1; fi
+          echo "Verified official Latest release: $latest"

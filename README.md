@@ -4,12 +4,12 @@
 
 ## Tải và cài đặt
 
-Mở **[Releases](https://github.com/lehoangminhhcmus/LeHoangMinh/releases)** và chọn bản mới nhất:
+Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/releases/latest)** để tải:
 
 - `GammaCNFReader-CSharp-Setup.exe`: bộ cài theo người dùng, có shortcut và mục gỡ cài đặt.
 - `GammaCNFReader-CSharp-Windows-x64.zip`: giải nén và chạy `GammaCNFReader.exe`, hoặc dùng `Install.cmd`.
 
-Bản đầu được phát hành dưới dạng **prerelease**, chưa ký số. Windows có thể cảnh báo nhà phát hành chưa xác định. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
+**v0.4.0 là bản phát hành chính thức Latest**, chưa ký số. Windows có thể cảnh báo nhà phát hành chưa xác định. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
 
 ## Chức năng
 

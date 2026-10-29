@@ -12,4 +12,4 @@ Tải `GammaCNFReader-CSharp-Setup.exe` để cài/cập nhật, hoặc giải n
 
 Kiểm tra: 105 kiểm tra với file CNF riêng và dữ liệu hiệu suất giả lập; CI chạy 96 kiểm tra chung cùng smoke test WPF Windows (ROI, đường hiệu suất, JSON, đồ thị và hoạt độ).
 
-Giới hạn: prerelease chưa ký số, chưa xác nhận hiệu suất/hoạt độ bằng nguồn chuẩn thực tế/Genie 2000. Không tự tính tự hấp thụ/trùng phùng tổng, không tự nhận diện đồng vị/gộp vạch; một Gaussian chưa tách đỉnh chồng. Sai số tuyến tính chỉ gồm các thành phần đã nhập; cần kiểm chứng độc lập trước khi dùng chính thức.
+Giới hạn: bản phát hành chưa ký số, chưa xác nhận hiệu suất/hoạt độ bằng nguồn chuẩn thực tế/Genie 2000. Không tự tính tự hấp thụ/trùng phùng tổng, không tự nhận diện đồng vị/gộp vạch; một Gaussian chưa tách đỉnh chồng. Sai số tuyến tính chỉ gồm các thành phần đã nhập; cần kiểm chứng độc lập trước khi dùng chính thức.
