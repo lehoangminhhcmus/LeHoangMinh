@@ -1,15 +1,17 @@
 # Gamma CNF Reader
 
-Ứng dụng **C# / WPF** xem phổ gamma Canberra/Genie 2000 `.CNF` trên **Windows 10/11 x64**. Không cần Python, Genie 2000 hoặc cài .NET riêng khi dùng bản self-contained.
+Ứng dụng C# đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF` trên **Windows 10/11 x64** và **macOS 14+ (Apple Silicon / Intel)**. Miễn phí cho sinh viên, giảng viên và phòng thí nghiệm; không cần tài khoản, kích hoạt, thuê bao, Python, Genie 2000 hoặc cài .NET riêng. [Quyền sử dụng miễn phí](DISTRIBUTION-LICENSE.txt).
 
 ## Tải và cài đặt
 
 Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/releases/latest)** để tải:
 
-- `GammaCNFReader-CSharp-Setup.exe`: bộ cài theo người dùng, có shortcut và mục gỡ cài đặt.
+- **Mac Apple Silicon:** `GammaCNFReader-macOS-osx-arm64.dmg`.
+- **Mac Intel:** `GammaCNFReader-macOS-osx-x64.dmg`.
+- **Windows:** `GammaCNFReader-CSharp-Setup.exe`: bộ cài theo người dùng, có shortcut và mục gỡ cài đặt.
 - `GammaCNFReader-CSharp-Windows-x64.zip`: giải nén và chạy `GammaCNFReader.exe`, hoặc dùng `Install.cmd`.
 
-**v0.6.0 là bản phát hành chính thức Latest**, chưa ký số. Windows có thể cảnh báo nhà phát hành chưa xác định. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
+**v0.7.0** bổ sung hai bản macOS native; mở DMG rồi kéo app vào Applications. [Hướng dẫn cài macOS và mở lần đầu](macos/README.md). Bản Mac chưa ký Apple Developer ID/notarize; nếu macOS chặn, dùng Privacy & Security → Open Anyway cho riêng app. Windows chưa ký số nhà phát hành. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
 
 ## Chức năng
 
@@ -27,7 +29,8 @@ Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/rele
 Cài .NET 10 SDK x64; chạy từ thư mục repository:
 
 ```console
-dotnet run --project windows/GammaCnf.App
+dotnet run --project windows/GammaCnf.App     # Windows WPF
+dotnet run --project macos/GammaCnf.Desktop   # macOS Avalonia
 dotnet run --project windows/GammaCnf.Checks
 ```
 
@@ -39,6 +42,6 @@ dotnet run --project windows/GammaCnf.Checks -- "D:\Data\Test_spc.cnf"
 
 155 kiểm tra dữ liệu đạt với file mẫu trong môi trường phát triển. Không có file mẫu người dùng trong repository. Nếu không cung cấp file mẫu, chỉ chạy 144 kiểm tra chung và báo NOT RUN cho nhóm mẫu.
 
-Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo bộ cài. Workflow GitHub Actions xây dựng bản Windows và phát hành khi đẩy tag `v*`; xem trạng thái workflow để xác nhận build và phát hành thực sự thành công.
+Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo bộ cài. Dùng `bash macos/build-macos.sh osx-arm64` trên Apple Silicon hoặc `osx-x64` trên Intel để tạo DMG. Workflow GitHub Actions xây dựng/kiểm tra Windows và cả hai Mac, chỉ phát hành khi tất cả đạt sau khi đẩy tag `v*`; xem trạng thái workflow để xác nhận build và phát hành thực sự thành công.
 
 [Chi tiết kỹ thuật và giới hạn](windows/README.md).

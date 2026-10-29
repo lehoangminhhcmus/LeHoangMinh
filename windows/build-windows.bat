@@ -5,6 +5,8 @@ dotnet run --project GammaCnf.Checks -c Release
 if errorlevel 1 goto error
 dotnet publish GammaCnf.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o dist\app
 if errorlevel 1 goto error
+copy /Y ..\DISTRIBUTION-LICENSE.txt dist\app\DISTRIBUTION-LICENSE.txt >nul
+if errorlevel 1 goto error
 where ISCC.exe >nul 2>nul
 if not errorlevel 1 (
   ISCC.exe installer.iss

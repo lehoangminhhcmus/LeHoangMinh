@@ -1,0 +1,98 @@
+<Window x:Class="GammaCnf.App.MainWindow" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:GammaCnf.App" Title="Gamma CNF Reader" Width="1280" Height="850" MinWidth="1000" MinHeight="700" Background="#F3F6FB"  FontSize="13" DragDrop.AllowDrop="True" KeyDown="OnKeyDown">
+ <Window.Resources><DataTemplate x:Key="LabelTemplate"><TextBlock Text="{Binding Label}"/></DataTemplate></Window.Resources>
+ <Grid Margin="18">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="190"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel Margin="0,0,0,12" Spacing="8">
+   <TextBlock Text="GAMMA / CNF" FontSize="25" FontWeight="Bold" Foreground="#112C4C" VerticalAlignment="Center"/>
+   <WrapPanel>
+    <Button Content="Mở file…" Click="OpenClick"/>
+    <Button x:Name="CsvButton" Content="Xuất CSV" Click="CsvClick" IsEnabled="False"/>
+    <Button x:Name="PngButton" Content="Lưu PNG" Click="PngClick" IsEnabled="False"/>
+    <Button Content="Toàn phổ" Click="ResetClick"/>
+    <Button Content="Hiệu suất / Hoạt độ…" Click="EfficiencyClick"/>
+    <CheckBox x:Name="EnergyCheck" Content="keV" IsEnabled="False" IsCheckedChanged="ModeChanged"/>
+    <CheckBox x:Name="LogCheck" Content="Log" IsCheckedChanged="ModeChanged"/>
+   </WrapPanel>
+  </StackPanel>
+  <DockPanel Grid.Row="1" Margin="0,0,0,10">
+   <StackPanel Orientation="Horizontal" DockPanel.Dock="Left"><Button x:Name="PreviousButton" Content="◀ Phổ trước" Click="PreviousSpectrumClick" IsEnabled="False"/><Button x:Name="NextButton" Content="Phổ sau ▶" Click="NextSpectrumClick" IsEnabled="False"/></StackPanel>
+   <Button x:Name="CloseSpectrumButton" Content="Đóng phổ này" Click="CloseSpectrumClick" DockPanel.Dock="Right" IsEnabled="False"/>
+   <ComboBox x:Name="OpenedSpectra" ItemTemplate="{StaticResource LabelTemplate}" SelectionChanged="OpenedSpectrumChanged" VerticalContentAlignment="Center" Margin="6,0,12,0" ToolTip.Tip="Các phổ đang mở. Dấu *: hiệu chuẩn chưa lưu CNF. Ctrl+Tab / Ctrl+Shift+Tab để chuyển."/>
+  </DockPanel>
+  <Border Grid.Row="2" Padding="14,10" Margin="0,0,0,12" Background="White" CornerRadius="6">
+   <StackPanel><TextBlock x:Name="FileLabel" Text="Chưa mở phổ" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Metadata" Text="Chọn hoặc kéo thả file Canberra .CNF." Margin="0,5,0,0" TextWrapping="Wrap"/><TextBlock x:Name="CalibrationLabel" TextWrapping="Wrap" Foreground="#52657B"/><TextBlock x:Name="BackgroundLabel" Text="Chưa trừ phông" Foreground="#52657B" TextWrapping="Wrap"/></StackPanel>
+  </Border>
+  <Grid Grid.Row="3">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="370"/></Grid.ColumnDefinitions>
+   <Border Background="White" CornerRadius="6" Padding="6" Margin="0,0,12,0"><local:SpectrumPlot x:Name="Plot"/></Border>
+   <TabControl Grid.Column="1">
+    <TabItem Header="Hiệu chuẩn">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="12">
+      <TextBlock Text="E(ch) = a0 + a1·ch + a2·ch² + a3·ch³" TextWrapping="Wrap" FontWeight="SemiBold"/>
+      <TextBlock Text="Đơn vị keV; kênh bắt đầu từ 0. Nhập dấu chấm hoặc dấu phẩy thập phân; không dùng dấu phân nhóm hàng nghìn." TextWrapping="Wrap" Margin="0,8"/>
+      <TextBlock Text="a0"/><TextBox x:Name="A0" Text="0" Margin="0,3,0,8"/>
+      <TextBlock Text="a1"/><TextBox x:Name="A1" Text="1" Margin="0,3,0,8"/>
+      <TextBlock Text="a2"/><TextBox x:Name="A2" Text="0" Margin="0,3,0,8"/>
+      <TextBlock Text="a3"/><TextBox x:Name="A3" Text="0" Margin="0,3,0,8"/>
+      <Button Content="Áp dụng hệ số" Click="ApplyCalibrationClick" Margin="0,8,0,8"/>
+      <Button Content="Lưu hiệu chuẩn vào CNF…" Click="SaveCnfClick" Margin="0,0,0,8"/>
+      <TextBlock Text="Chọn lại file gốc để lưu chồng. App tạo bản .bak trước khi thay file. Chỉ ghi hiệu chuẩn; không ghi số đếm sau trừ phông hoặc ROI vào CNF. Kết quả phân tích cũ bên trong CNF không được tính lại." TextWrapping="Wrap" Foreground="#9A5900"/>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+    <TabItem Header="Trừ phông">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="12">
+      <Button Content="Chọn phổ phông CNF…" Click="BackgroundClick" Margin="0,0,0,10"/>
+      <TextBlock x:Name="PendingBackgroundLabel" Text="Chưa chọn file" TextWrapping="Wrap"/>
+      <TextBlock Text="Tự chuẩn hóa thời gian phông về thời gian phổ mẫu:" Margin="0,12,0,5" TextWrapping="Wrap"/>
+      <ComboBox x:Name="TimeBasisChoice" SelectedIndex="0" SelectionChanged="BackgroundTimeChanged" Margin="0,0,0,8"><ComboBoxItem Content="Live time (khuyến nghị)"/><ComboBoxItem Content="Real time"/></ComboBox>
+      <TextBlock Text="α tự động = thời gian mẫu / thời gian phông" TextWrapping="Wrap"/><TextBox x:Name="ScaleText" IsReadOnly="True" Margin="0,5,0,12"/>
+      <CheckBox x:Name="AllowChannelOnly" Margin="0,0,0,12"><TextBlock Text="Nếu thiếu hiệu chuẩn: tôi xác nhận hai phổ dùng cùng cấu hình MCA" TextWrapping="Wrap"/><ToolTip.Tip>Chỉ dùng khi đã kiểm tra căn chỉnh kênh của hai phổ.</ToolTip.Tip></CheckBox>
+      <Button Content="Áp dụng trừ phông" Click="ApplyBackgroundClick" Margin="0,0,0,8"/>
+      <Button Content="Bỏ trừ phông" Click="ClearBackgroundClick" Margin="0,0,0,12"/>
+      <TextBlock Text="Chọn file phông sẽ tự trừ với α theo thời gian. Đổi live/real sẽ tự tính lại. Không sửa file phông gốc. Net = mẫu − α × phông. Giữ số đếm âm; σ² = mẫu + α² × phông. Hai phổ phải cùng số kênh, hiệu chuẩn lệch không quá 0,05 kênh. Chưa tự rebin hoặc hiệu chỉnh trôi đỉnh." TextWrapping="Wrap"/>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+    <TabItem Header="ROI / Gaussian">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="12">
+      <TextBlock Text="Dò đỉnh và ROI tự động" FontWeight="SemiBold" FontSize="15"/>
+      <TextBlock Text="FWHM nhỏ nhất / lớn nhất (kênh)" Margin="0,6,0,4"/>
+      <UniformGrid Columns="2"><TextBox x:Name="PeakMinWidth" Text="3" Margin="0,0,5,6"/><TextBox x:Name="PeakMaxWidth" Text="40" Margin="5,0,0,6"/></UniformGrid>
+      <TextBlock Text="Ngưỡng SNR bộ lọc (khuyến nghị 5)"/><TextBox x:Name="PeakThreshold" Text="5" Margin="0,4,0,6"/>
+      <TextBlock Text="Nửa rộng ROI theo sigma ước lượng"/><TextBox x:Name="PeakPadding" Text="3.5" Margin="0,4,0,6"/>
+      <CheckBox x:Name="ReplaceAutomatic" IsChecked="True" Margin="0,5,0,8"><TextBlock Text="Thay ROI tự động cũ; luôn giữ ROI thủ công" TextWrapping="Wrap"/></CheckBox>
+      <Button x:Name="PeakSearchButton" Content="Dò đỉnh và tạo ROI tự động" Click="AutoPeakClick" Margin="0,0,0,8"/>
+      <Button x:Name="CancelPeakButton" Content="Hủy dò" Click="CancelPeakClick" IsEnabled="False" Margin="0,0,0,8"/>
+      <TextBlock Text="Dò toàn phổ đang chọn, dùng net/variance nếu đã trừ phông. Vạch cam là ứng viên đỉnh. SNR không phải p-value. Đỉnh sát nhau có thể được gom nhóm; kiểm tra ROI trước khi định lượng." Foreground="#9A5900" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <TextBlock Text="Shift + kéo trên phổ để thêm ROI, hoặc nhập giới hạn kênh bên dưới (bao gồm hai đầu)." TextWrapping="Wrap"/>
+      <TextBlock Text="Kênh đầu" Margin="0,12,0,4"/><TextBox x:Name="RoiStart" Text="0"/>
+      <TextBlock Text="Kênh cuối" Margin="0,8,0,4"/><TextBox x:Name="RoiEnd" Text="100"/>
+      <Button Content="Thêm ROI và fit" Click="AddRoiClick" Margin="0,12,0,8"/>
+      <Button Content="Cập nhật giới hạn ROI đang chọn" Click="EditRoiClick" Margin="0,0,0,8"/>
+      <Button Content="Xóa ROI đang chọn" Click="RemoveRoiClick" Margin="0,0,0,8"/>
+      <Button Content="Xóa tất cả ROI" Click="ClearRoisClick" Margin="0,0,0,8"/>
+      <Button Content="Xuất tất cả ROI ra TXT…" Click="ExportRoisClick" Margin="0,0,0,12"/>
+      <TextBlock Text="Tổng gốc/phông/net được cộng trực tiếp trong ROI (bao gồm hai đầu), không trừ nền liên tục. Fit Gaussian + nền tuyến tính cần 9–4096 kênh; ROI nhỏ/lớn hơn vẫn có tổng số đếm. Diện tích là toàn Gaussian, sai số 1σ xấp xỉ. Đường đỏ là mô hình fit. ROI lỗi vẫn có trong báo cáo. Với đỉnh chồng hoặc thống kê thấp, cần mô hình phân tích chuyên sâu hơn." TextWrapping="Wrap"/>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+   </TabControl>
+  </Grid>
+  <DataGrid x:Name="RoiGrid" Grid.Row="4" Margin="0,12,0,0" IsReadOnly="True" AutoGenerateColumns="False" SelectionMode="Single" FrozenColumnCount="2" SelectionChanged="SelectedRoiChanged">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="ROI" Binding="{Binding Id}" Width="40"/>
+    <DataGridTextColumn Header="Kênh" Binding="{Binding Bounds}" Width="85"/>
+    <DataGridTextColumn Header="Nguồn ROI" Binding="{Binding Origin}" Width="90"/>
+    <DataGridTextColumn Header="Tổng gốc ROI" Binding="{Binding GrossCounts}" Width="110"/>
+    <DataGridTextColumn Header="Phông đã scale" Binding="{Binding BackgroundCounts}" Width="110"/>
+    <DataGridTextColumn Header="Tổng net ± 1σ" Binding="{Binding NetCounts}" Width="145"/>
+    <DataGridTextColumn Header="Gauss ± 1σ" Binding="{Binding Area}" Width="145"/>
+    <DataGridTextColumn Header="Đỉnh (ch)" Binding="{Binding Position}" Width="90"/>
+    <DataGridTextColumn Header="keV" Binding="{Binding Energy}" Width="85"/>
+    <DataGridTextColumn Header="FWHM (ch)" Binding="{Binding Width}" Width="90"/>
+    <DataGridTextColumn Header="FWHM (keV)" Binding="{Binding EnergyWidth}" Width="100"/>
+    <DataGridTextColumn Header="χ²/ν" Binding="{Binding ChiSquare}" Width="70"/>
+    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="*" MinWidth="170"></DataGridTextColumn>
+   </DataGrid.Columns>
+  </DataGrid>
+  <StackPanel Grid.Row="5" Margin="0,10,0,0"><TextBlock x:Name="Status" Text="⌘/Ctrl+O: mở file • Shift+kéo: thêm ROI • Kéo: zoom • Home: toàn phổ" TextWrapping="Wrap"/><TextBlock x:Name="Warnings" Foreground="#A45E00" TextWrapping="Wrap"/></StackPanel>
+ </Grid>
+</Window>

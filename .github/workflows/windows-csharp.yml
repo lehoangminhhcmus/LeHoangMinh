@@ -1,4 +1,4 @@
-name: Build and release Windows app
+name: Build and release Windows and macOS apps
 on:
   workflow_dispatch:
   push:
@@ -61,9 +61,11 @@ jobs:
             windows/dist/GammaCNFReader-CSharp-Windows-x64.zip
             windows/dist/installer/GammaCNFReader-CSharp-Setup.exe
           if-no-files-found: error
+  macos:
+    uses: ./.github/workflows/macos.yml
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: [build, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -73,14 +75,23 @@ jobs:
         with:
           name: GammaCNFReader-CSharp-Windows-x64
           path: release-files
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: GammaCNFReader-macOS-*
+          path: release-files/macos
+          merge-multiple: true
       - name: Publish latest release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
+          test -s release-files/macos/GammaCNFReader-macOS-osx-arm64.dmg
+          test -s release-files/macos/GammaCNFReader-macOS-osx-x64.dmg
+          (cd release-files && sha256sum GammaCNFReader-CSharp-Windows-x64.zip installer/GammaCNFReader-CSharp-Setup.exe macos/*.dmg > SHA256SUMS.txt)
           gh release create "$RELEASE_TAG" \
             release-files/GammaCNFReader-CSharp-Windows-x64.zip \
             release-files/installer/GammaCNFReader-CSharp-Setup.exe \
-            --title "Gamma CNF Reader $RELEASE_TAG (Windows x64)" \
+            release-files/macos/*.dmg release-files/SHA256SUMS.txt \
+            --title "Gamma CNF Reader $RELEASE_TAG (Windows + macOS)" \
             --notes-file windows/RELEASE_NOTES.md --latest --verify-tag

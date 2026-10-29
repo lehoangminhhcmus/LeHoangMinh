@@ -1,0 +1,16 @@
+Gamma CNF Reader — Free binary distribution license
+Copyright (c) 2026 Le Hoang Minh
+
+Permission is granted, free of charge, to anyone, including students, teachers,
+and laboratories, to download, install, use, and redistribute unmodified official
+Gamma CNF Reader binary releases on Windows and macOS, with this notice retained.
+There is no license fee, subscription, activation requirement, or time limit.
+This permission does not change the separate licenses of third-party components
+and does not grant rights to Canberra/Mirion trademarks or proprietary software.
+It does not relicense source code or any third-party spectrum files.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. THE AUTHOR IS NOT LIABLE FOR CLAIMS OR DAMAGES ARISING FROM
+ITS USE. Users are responsible for validating scientific results and the
+suitability of the software for their measurements.

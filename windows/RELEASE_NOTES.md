@@ -1,15 +1,34 @@
-Bản 0.6.0 cho Windows 10/11 x64 bổ sung **dò đỉnh và ROI tự động**:
+**Gamma CNF Reader v0.7.0 — Windows + macOS**, miễn phí cho sinh viên, giảng viên
+và phòng thí nghiệm. Không cần tài khoản, kích hoạt, thuê bao hay cài .NET/Python.
 
-- Nút **Dò đỉnh và tạo ROI tự động** trong tab ROI / Gaussian; áp dụng cho phổ gốc hoặc net sau trừ phông.
-- Quét đa độ rộng với ngưỡng SNR và FWHM theo kênh có thể chỉnh; tự ước lượng ROI có nền hai bên, đánh dấu ứng viên bằng vạch cam.
-- Tự fit Gaussian và lấy tổng số đếm với ROI đơn; ROI tự động chồng nhau được gom nhóm, không tự định lượng nhóm bằng một Gaussian.
-- Giữ ROI thủ công; tùy chọn thay vùng tự động cũ; sửa giới hạn ROI rồi tính lại. TXT có nguồn ROI và thông số dò.
-- Chạy nền, có nút Hủy; không đưa kết quả vào nhầm phổ khi chuyển phổ hoặc khi dữ liệu đã thay đổi. Hiệu chuẩn/phông thay đổi sau lần dò sẽ đánh dấu thông tin dò cũ.
+| Máy | File |
+| --- | --- |
+| Windows 10/11 x64 | `GammaCNFReader-CSharp-Setup.exe` hoặc ZIP portable |
+| macOS 14+ Apple Silicon (chip M) | `GammaCNFReader-macOS-osx-arm64.dmg` |
+| macOS 14+ Intel | `GammaCNFReader-macOS-osx-x64.dmg` |
 
-Mặc định FWHM 3–40 kênh, SNR 5, biên ROI ±3,5 sigma ước lượng. Cần kiểm tra/chỉnh ROI trước khi định lượng. SNR bộ lọc không phải p-value; chưa nhận diện đồng vị hoặc tách multiplet. Nền cong/cạnh Compton có thể tạo ứng viên giả và đỉnh yếu vẫn có thể bị bỏ sót.
+Bản macOS mới dùng giao diện Avalonia và **dùng chung toàn bộ phần đọc/tính toán C#**
+với Windows: nhiều phổ, chuẩn năng lượng/lưu CNF có .bak, tự scale thời gian phông,
+dò đỉnh/tạo ROI, tổng số đếm và Gaussian/FWHM, chuẩn hiệu suất GLS/JSON, hoạt độ Bq/Bq/kg,
+xuất CSV/PNG/TXT. Windows giữ giao diện WPF và được nâng số phiên bản đồng bộ.
 
-Giữ các chức năng nhiều phổ, tự scale phông, tổng ROI, chuẩn năng lượng, hiệu suất và hoạt độ của bản trước. Tải Setup.exe để cài/cập nhật hoặc giải nén ZIP để chạy ngay; không cần Python hoặc cài .NET riêng.
+**Cài trên Mac:** mở DMG đúng chip → kéo ứng dụng vào Applications → eject DMG → mở
+app. Bản macOS có chữ ký ad-hoc nhưng **chưa ký Apple Developer ID/notarize**. Nếu bị
+chặn lần đầu, vào System Settings → Privacy & Security → Open Anyway để cho phép
+riêng app; không cần tắt Gatekeeper toàn máy. Windows cũng chưa ký số nhà phát hành.
 
-Kiểm tra: 155 kiểm tra dữ liệu với CNF riêng/dữ liệu giả lập; CI chạy 144 kiểm tra chung và WPF smoke test Windows, gồm dò/fit/chỉnh/giữ ROI, hủy, provenance và xuất ảnh/TXT.
+- [Hướng dẫn macOS](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/macos/README.md)
+- [Phương pháp tính và giới hạn](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/windows/README.md)
+- [Quyền sử dụng và phân phối miễn phí](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/DISTRIBUTION-LICENSE.txt)
 
-Chưa ký số; hiệu suất/hoạt độ chưa được xác nhận bằng nguồn chuẩn thực tế/Genie 2000. Các tổng ROI còn chứa nền liên tục; cần kiểm chứng kết quả trước khi dùng chính thức.
+Gói macOS được build và kiểm tra native trên macOS 15 Apple Silicon/Intel. DMG được
+verify, mount read-only và chạy kiểm tra giao diện từ ứng dụng bên trong. Kiểm tra
+bao gồm phổ CNF tổng hợp, nhiều phổ, hiệu chuẩn/phông, ROI và tổng số đếm, dò/chỉnh/hủy,
+GLS/JSON/hoạt độ, ảnh PNG và báo cáo. Core có 155 kiểm tra với phổ riêng tại môi trường
+phát triển; CI chạy 144 kiểm tra chung. Windows chạy WPF smoke checks như trước.
+`SHA256SUMS.txt` đi kèm để đối chiếu các file tải.
+
+Chưa xác nhận hiệu suất/hoạt độ bằng nguồn chuẩn thực tế hoặc đối chiếu Genie 2000.
+ROI tổng còn chứa nền liên tục; một Gaussian không tách multiplet; chưa tự nhận diện
+đồng vị hoặc hiệu chỉnh tự hấp thụ/trùng phùng. Cần kiểm chứng kết quả trước khi dùng
+chính thức. Không kèm phổ CNF của người dùng hoặc bộ chuẩn thực tế giả định.

@@ -30,7 +30,7 @@ $link.Description = 'Canberra gamma spectrum viewer'
 $link.Save()
 New-Item -Path $registry -Force | Out-Null
 $uninstallCommand = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $installDir 'Install-User.ps1') + '" -Uninstall'
-$properties = @{ DisplayName='Gamma CNF Reader (CSharp)'; DisplayVersion='0.6.0'; DisplayIcon=$exe; InstallLocation=$installDir; UninstallString=$uninstallCommand }
+$properties = @{ DisplayName='Gamma CNF Reader (CSharp)'; DisplayVersion='0.7.0'; DisplayIcon=$exe; InstallLocation=$installDir; UninstallString=$uninstallCommand }
 $properties.GetEnumerator() | ForEach-Object {
     New-ItemProperty -Path $registry -Name $_.Key -Value $_.Value -PropertyType String -Force | Out-Null
 }
