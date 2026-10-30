@@ -1,16 +1,13 @@
-# Gamma CNF Reader v0.10.0 — gợi ý đồng vị từ ROI và thư viện NLB
+# Gamma CNF Reader v0.10.1 — vạch đối chiếu đồng vị trên phổ
 
-- Tab **Gợi ý đồng vị** bên cạnh **Kết quả ROI**, cập nhật theo phổ/ROI/hiệu chuẩn.
-- Chọn thư mục thư viện NLB của Genie hoặc CSV; nhớ đường dẫn và nạp lại khi đổi dữ liệu.
-- Hiển thị tên đồng vị khả dĩ, năng lượng đo/thư viện, ΔE, dung sai, Pγ nếu có,
-  nguồn thư viện và các ROI hỗ trợ. Không coi gợi ý là xác suất nhận dạng.
-- Dung sai kết hợp keV và FWHM; ưu tiên nhiều vạch ở ROI riêng biệt, rồi độ lệch
-  năng lượng. ROI chồng/trùng không được đếm lại làm bằng chứng hỗ trợ.
-- Bộ đọc NLB chỉ đọc, kiểm tra cấu trúc và liên kết nội bộ; đã xác minh trên
-  cả 10 thư viện NLB người dùng cung cấp. Không đóng gói lại các file NLB đó.
-- Giữ các tính năng amplitude tối thiểu, đa thức hiệu suất 1–6, đồ thị và thông tin tác giả.
+- Nhấp đồng vị trong tab **Gợi ý đồng vị** để hiện các vạch năng lượng tham chiếu
+  trên phổ bằng màu **xanh lá cây đậm (#006400)**, kèm tên đồng vị và năng lượng.
+- Dùng các vạch của cùng file thư viện với ứng viên được chọn; thay đồng vị sẽ
+  thay toàn bộ bộ vạch. Không trộn các nguồn dữ liệu khác nhau.
+- Hoạt động trên trục keV hoặc kênh, tuyến tính/log và chuẩn năng lượng phi tuyến;
+  vạch đi theo vùng zoom. Nhãn tối đa 12 vạch mạnh để hạn chế chồng chữ.
+- Có nút **Ẩn vạch đối chiếu**. Xóa vạch cũ khi đổi phổ/nạp thư viện/tính lại gợi ý.
+- Vạch là tham chiếu đối chiếu năng lượng, chưa phải kết luận xác nhận đồng vị.
 
-[Hướng dẫn sử dụng](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/docs/Goi_y_dong_vi_v0.10.0.md).
-
-Kiểm tra tại môi trường phát triển: 224 kiểm tra chung, 255 kiểm tra khi kèm
-10 thư viện NLB đã gửi; build Windows và smoke test giao diện Avalonia đạt.
+Kiểm tra: 227 kiểm tra chung; kiểm tra giao diện chọn/thay đồng vị, ẩn vạch,
+đổi trục và xóa vạch khi nạp lỗi thư viện.

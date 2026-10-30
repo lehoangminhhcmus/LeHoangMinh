@@ -71,3 +71,17 @@ Không nạp trực tiếp các bảng trích NLB có danh sách đồng vị v�
 
 Giới hạn: 100 file, tổng 32 MB, 200.000 vạch và tối đa 50.000 kết quả khớp.
 Nếu quá nhiều kết quả, giảm dung sai hoặc chọn thư viện gọn hơn.
+
+## Vạch đối chiếu khi chọn đồng vị — v0.10.1
+
+Nhấp một hàng đồng vị trong tab **Gợi ý đồng vị**. Các vạch năng lượng của đồng
+vị đó trong cùng file thư viện với ứng viên được chọn sẽ hiện trên phổ bằng
+đường thẳng đứng **xanh lá cây đậm (#006400)**. Có nhãn tên đồng vị và keV; nếu
+nhiều vạch, chỉ ghi nhãn tối đa 12 vạch mạnh trong vùng zoom để hạn chế chồng chữ.
+Vị trí dùng chuẩn năng lượng đang áp dụng, kể cả đa thức phi tuyến, hoạt động ở
+cả trục keV/kênh và chế độ tuyến tính/log. Chỉ các vạch nằm trong miền đang xem
+được vẽ; không tự đổi zoom khi chọn đồng vị.
+
+Chọn đồng vị khác để thay bộ vạch; bấm **Ẩn vạch đối chiếu** để xóa. Nạp lại thư
+viện, đổi phổ hoặc tính lại gợi ý sẽ xóa lựa chọn/vạch cũ. Đây là các vạch tham
+chiếu để kiểm tra sự trùng năng lượng, chưa xác nhận có đồng vị đó trong mẫu.

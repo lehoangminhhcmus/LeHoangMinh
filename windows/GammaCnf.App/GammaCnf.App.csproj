@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>GammaCNFReader</AssemblyName>
-    <Version>0.10.0</Version>
+    <Version>0.10.1</Version>
     <Authors>Lê Hoàng Minh</Authors>
     <Company>Trường Đại học khoa học tự nhiên, Đại học Quốc gia Thành phố Hồ Chí Minh</Company>
   </PropertyGroup>

@@ -12,6 +12,7 @@ public sealed class SpectrumPlot : FrameworkElement
     public double[]? Values { get; set; }
     public IReadOnlyList<RoiResult> Rois { get; set; } = [];
     public IReadOnlyList<PeakCandidate> DetectedPeaks {get;set;}=[];
+    public IReadOnlyList<ConfirmationMarker> ConfirmationMarkers {get;set;}=[];
     public event Action<int,int>? RoiSelected;
     public bool EnergyAxis { get; set; }
     public bool LogScale { get; set; }
@@ -20,6 +21,8 @@ public sealed class SpectrumPlot : FrameworkElement
     private double? selection;
     private double selectionEnd;
     private Rect Area => new(78, 28, Math.Max(1, ActualWidth - 106), Math.Max(1, ActualHeight - 94));
+    private static readonly Brush ConfirmBrush=new SolidColorBrush(Color.FromRgb(0,100,0));
+    private static readonly Pen ConfirmPen=new(ConfirmBrush,1.8);
     private static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(53, 73, 99));
     private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromRgb(230, 236, 244)), 1);
     private static readonly Pen LinePen = new(new SolidColorBrush(Color.FromRgb(23, 101, 174)), 1);
@@ -53,10 +56,10 @@ public sealed class SpectrumPlot : FrameworkElement
         for (int i=0;i<40;i++) { double mid=(a+b)/2; if(XValue(mid)<target) a=mid; else b=mid; }
         return (a+b)/2;
     }
-    private void Text(DrawingContext dc, string text, Point origin, double size=12, TextAlignment alignment=TextAlignment.Left)
+    private void Text(DrawingContext dc, string text, Point origin, double size=12, TextAlignment alignment=TextAlignment.Left,Brush? color=null)
     {
         var formatted = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), size, Ink, VisualTreeHelper.GetDpi(this).PixelsPerDip) { TextAlignment=alignment };
+            new Typeface("Segoe UI"), size, color??Ink, VisualTreeHelper.GetDpi(this).PixelsPerDip) { TextAlignment=alignment };
         dc.DrawText(formatted, origin);
     }
     protected override void OnRender(DrawingContext dc)
@@ -88,6 +91,8 @@ public sealed class SpectrumPlot : FrameworkElement
         }
         Text(dc, EnergyAxis ? "Năng lượng (keV)" : "Kênh (bắt đầu từ 0)",new Point(area.Left+area.Width/2,area.Bottom+35),13,TextAlignment.Center);
         Text(dc,LogScale ? "Số đếm / kênh • log (ẩn số đếm ≤ 0)" : "Số đếm / kênh",new Point(area.Left,3));
+        if(ConfirmationMarkers.Count>0)
+            Text(dc,$"Vạch đối chiếu: {ConfirmationMarkers[0].Nuclide} • năng lượng thư viện (keV)",new Point(area.Left,area.Bottom+56),11,color:ConfirmBrush);
         dc.PushClip(new RectangleGeometry(area));
         int roiId=0;
         foreach(var roi in Rois)
@@ -130,6 +135,18 @@ public sealed class SpectrumPlot : FrameworkElement
                 }
             }
             dc.DrawGeometry(null,new Pen(Brushes.IndianRed,1.5),fit);
+        }
+        var visibleConfirmations=ConfirmationMarkers.Where(m=>m.Channel>=left&&m.Channel<=right).ToArray();
+        var labels=visibleConfirmations.OrderByDescending(m=>m.IntensityPercent).ThenBy(m=>m.EnergyKeV).Take(12).ToHashSet();
+        int confirmationLabel=0;
+        foreach(var marker in visibleConfirmations)
+        {
+            double px=XPixel(marker.Channel);
+            dc.DrawLine(ConfirmPen,new Point(px,area.Top),new Point(px,area.Bottom));
+            if(labels.Contains(marker))
+            {
+                Text(dc,$"{marker.Nuclide} {marker.EnergyKeV:0.###} keV",new Point(px+4,area.Top+42+(confirmationLabel++%3)*14),10,color:ConfirmBrush);
+            }
         }
         if(selection is double start)
         {

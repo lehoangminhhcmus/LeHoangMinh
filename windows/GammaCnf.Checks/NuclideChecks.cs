@@ -35,6 +35,19 @@ internal static class NuclideChecks
             var bad=Fixture();BinaryPrimitives.WriteUInt16LittleEndian(bad.AsSpan(2048+48+286+1,2),99);File.WriteAllBytes(nlb,bad);
             Reject(()=>NuclideLibrary.LoadDirectory(directory),"Reject NLB out-of-range line reference instead of guessing isotope");
             File.WriteAllBytes(nlb,Fixture()[..3000]);Reject(()=>NuclideLibrary.LoadDirectory(directory),"Reject truncated NLB library");
+            var spectrum=CnfReader.Decode(AnalysisChecks.Fixture()) with{Calibration=[1,.5,.0002,.0000001]};
+            double targetChannel=300.25,targetEnergy=spectrum.Energy(targetChannel)!.Value;
+            var referenceLines=new[]{
+                new NuclideLine("TEST",targetEnergy,80,"TEST","a.csv"),
+                new NuclideLine("TEST",targetEnergy,50,"TEST","a.csv"),
+                new NuclideLine("TEST",spectrum.Energy(0)!.Value,10,"TEST","a.csv"),
+                new NuclideLine("TEST",spectrum.Energy(spectrum.Counts.Length-1)!.Value,null,"TEST","a.csv"),
+                new NuclideLine("TEST",spectrum.Energy(spectrum.Counts.Length-1)!.Value+1,20,"TEST","a.csv"),
+                new NuclideLine("TEST",targetEnergy+20,0,"TEST","a.csv")};
+            var markers=NuclideConfirmation.Markers(spectrum,referenceLines);
+            check(markers.Count==3&&Math.Abs(markers.Single(m=>m.EnergyKeV==targetEnergy).Channel-targetChannel)<1e-8,"Confirmation line mapping inverts nonlinear calibration and deduplicates equal energies");
+            check(Math.Abs(markers.First().Channel)<1e-8&&Math.Abs(markers.Last().Channel-(spectrum.Counts.Length-1))<1e-8,"Confirmation markers include spectrum boundaries and omit out-of-range or zero-probability lines");
+            check(NuclideConfirmation.Markers(spectrum with{Calibration=null},referenceLines).Count==0,"Do not invent confirmation positions without energy calibration");
             string? actual=Environment.GetEnvironmentVariable("GAMMA_NLB_TEST_DIRECTORY");
             if(!string.IsNullOrEmpty(actual))
             {

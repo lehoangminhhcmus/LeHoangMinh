@@ -104,9 +104,9 @@
     <Grid Margin="6">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <DockPanel><Button Content="Chọn thư mục NLB/CSV…" Click="ChooseLibraryClick" DockPanel.Dock="Left"/><Button Content="Nạp lại" Click="LoadLibraryClick" DockPanel.Dock="Right"/><TextBox x:Name="LibraryFolder" VerticalContentAlignment="Center"/></DockPanel>
-     <WrapPanel Grid.Row="1" Margin="0,4"><TextBlock Text="Dung sai tối thiểu (keV):" VerticalAlignment="Center"/><TextBox x:Name="NuclideTolerance" Text="2" Width="65" Margin="6,0"/><TextBlock Text="× FWHM:" VerticalAlignment="Center"/><TextBox x:Name="NuclideFwhm" Text="0.5" Width="60" Margin="6,0"/><Button Content="Cập nhật gợi ý" Click="RefreshNuclidesClick"/><TextBlock Text="Dung sai = max(keV, hệ số × FWHM). Gợi ý theo năng lượng, chưa xác nhận đồng vị." VerticalAlignment="Center" Margin="8,0"/></WrapPanel>
+     <WrapPanel Grid.Row="1" Margin="0,4"><TextBlock Text="Dung sai tối thiểu (keV):" VerticalAlignment="Center"/><TextBox x:Name="NuclideTolerance" Text="2" Width="65" Margin="6,0"/><TextBlock Text="× FWHM:" VerticalAlignment="Center"/><TextBox x:Name="NuclideFwhm" Text="0.5" Width="60" Margin="6,0"/><Button Content="Cập nhật gợi ý" Click="RefreshNuclidesClick"/><Button Content="Ẩn vạch đối chiếu" Click="ClearConfirmationClick"/><TextBlock Text="Dung sai = max(keV, hệ số × FWHM). Gợi ý theo năng lượng, chưa xác nhận đồng vị." VerticalAlignment="Center" Margin="8,0"/></WrapPanel>
      <TextBlock x:Name="NuclideSummary" Grid.Row="2" TextWrapping="Wrap" Margin="0,2,0,4"/>
-     <DataGrid x:Name="NuclideGrid" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False"><DataGrid.Columns>
+     <DataGrid x:Name="NuclideGrid" SelectionMode="Single" SelectionChanged="NuclideSelectionChanged" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False"><DataGrid.Columns>
       <DataGridTextColumn Header="ROI" Binding="{Binding Roi}" Width="45"/>
       <DataGridTextColumn Header="Đồng vị khả dĩ" Binding="{Binding Nuclide}" Width="115"/>
       <DataGridTextColumn Header="E đo (keV)" Binding="{Binding MeasuredText}" Width="95"/>
