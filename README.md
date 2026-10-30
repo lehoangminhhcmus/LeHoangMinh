@@ -13,6 +13,12 @@ Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/rele
 
 **v0.7.0** bổ sung hai bản macOS native; mở DMG rồi kéo app vào Applications. [Hướng dẫn cài macOS và mở lần đầu](macos/README.md). Bản Mac chưa ký Apple Developer ID/notarize; nếu macOS chặn, dùng Privacy & Security → Open Anyway cho riêng app. Windows chưa ký số nhà phát hành. Chỉ mới có một file Canberra thật để kiểm tra độ tương thích; phần hiệu suất/hoạt độ được kiểm tra với dữ liệu giả lập, chưa được xác nhận bằng nguồn chuẩn thực tế hoặc Genie 2000.
 
+## Cập nhật v0.9.0
+
+- Cảnh báo chất lượng hiệu suất thay cho chặn tính hoạt độ.
+- Đa thức hiệu suất bậc 1–6, tối thiểu bậc+2 năng lượng khác nhau.
+- Đồ thị năng lượng theo kênh và đồ thị hiệu suất kèm biên sai số ±1σ trên Windows/macOS.
+
 ## Chuẩn hiệu suất nhập gọn — v0.8.0
 
 Chọn ROI đã fit, nhập **hoạt độ tại đầu phép đo (Bq)** và **xác suất gamma (%)**;

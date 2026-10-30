@@ -79,7 +79,7 @@
    </TabItem>
    <TabItem Header="2. Đường chuẩn và phần dư">
     <Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-     <WrapPanel><TextBlock Text="Bậc đa thức ln ε theo ln(E/1000 keV):" VerticalAlignment="Center"/><ComboBox x:Name="DegreeChoice" Width="65" SelectedIndex="0" Margin="10,0"><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/></ComboBox><Button Content="Fit đường chuẩn" Click="FitClick"/></WrapPanel>
+     <WrapPanel><TextBlock Text="Bậc đa thức ln ε theo ln(E/1000 keV):" VerticalAlignment="Center"/><ComboBox x:Name="DegreeChoice" Width="65" SelectedIndex="0" Margin="10,0"><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/><ComboBoxItem Content="5"/><ComboBoxItem Content="6"/></ComboBox><Button Content="Fit đường chuẩn" Click="FitClick"/></WrapPanel>
      <TextBlock x:Name="FitSummary" Grid.Row="1" Text="Bậc 1–3 cần tối thiểu bậc+2 năng lượng khác nhau. Nên có nhiều điểm phân bố đều trong miền sử dụng." Margin="0,10"/>
      <local:EfficiencyPlot x:Name="CurvePlot" Grid.Row="2"/>
     </Grid>

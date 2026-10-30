@@ -109,7 +109,7 @@ public partial class EfficiencyWindow : Window
         if(workspace.Points.Any(p=>p.MeasurementId==o.MeasurementId&&p.RoiStart<=o.RoiEnd&&o.RoiStart<=p.RoiEnd))throw new CnfException("ROI trùng/chồng đã được dùng làm điểm chuẩn.");
         if(workspace.Points.Count>=500)throw new CnfException("Tối đa 500 điểm chuẩn.");
         workspace.Points.Add(o);workspace.LastSource=o.Source;workspace.LastGamma=o.Gamma;
-        CaptureSettings();InvalidateFit();RefreshPoints();StatusText.Text="Đã thêm điểm. "+(o.MissingInputs is {Length:>0}?"† Có thông tin/sai số chưa cung cấp; ± chỉ gồm các thành phần đã có. ":"")+"Có thể lưu JSON nháp để tiếp tục trên phổ khác.";
+        CaptureSettings();InvalidateFit();RefreshPoints();StatusText.Text="Đã thêm điểm. "+(o.QualityWarnings.Length>0?"CẢNH BÁO: "+string.Join(" ",o.QualityWarnings)+" ":"")+(o.MissingInputs is {Length:>0}?"† Có thông tin/sai số chưa cung cấp; ± chỉ gồm các thành phần đã có. ":"")+"Có thể lưu JSON nháp để tiếp tục trên phổ khác.";
     }
     private void CaptureSettings()
     {
@@ -136,8 +136,8 @@ public partial class EfficiencyWindow : Window
     {
         CurvePlot.Profile=workspace.Profile;CurvePlot.InvalidateVisual();
         if(workspace.Profile is not {} p){FitSummary.Text=$"{workspace.Points.Count} điểm. Chưa có đường chuẩn fit hợp lệ; cần bậc+2 năng lượng khác nhau.";return;}
-        bool poor=p.ChiSquarePerDof>3||p.ResidualSigma.Any(r=>Math.Abs(r)>3);
-        FitSummary.Text=$"{p.Definition.Name} • {p.Definition.Points.Length} điểm • {p.MinEnergy:G8}–{p.MaxEnergy:G8} keV • χ²/ν={p.ChiSquarePerDof:N3}\nln ε = Σ c[j] ln(E/1000)^j; c = "+string.Join(", ",p.Coefficients.Select(F))+(p.InputWarnings.Length>0?"\nCó thông tin/sai số chưa cung cấp; ± chỉ gồm thành phần đã có. Xem TXT/JSON.":"")+(poor?"\nCẢNH BÁO: χ²/ν hoặc phần dư vượt 3; chưa cho tính hoạt độ.":"\nKhông ngoại suy. Khoảng sai số là 1σ, phụ thuộc các thành phần đã nhập.");
+        bool poor=p.QualityWarnings.Length>0;
+        FitSummary.Text=$"{p.Definition.Name} • {p.Definition.Points.Length} điểm • {p.MinEnergy:G8}–{p.MaxEnergy:G8} keV • χ²/ν={p.ChiSquarePerDof:N3}\nln ε = Σ c[j] ln(E/1000)^j; c = "+string.Join(", ",p.Coefficients.Select(F))+(p.InputWarnings.Length>0?"\nCó thông tin/sai số chưa cung cấp; ± chỉ gồm thành phần đã có. Xem TXT/JSON.":"")+(poor?"\n"+p.QualitySummary:"\nKhông ngoại suy. Khoảng sai số là 1σ, phụ thuộc các thành phần đã nhập.");
     }
     private void LoadProfileClick(object sender,RoutedEventArgs e)=>Run(()=>
     {

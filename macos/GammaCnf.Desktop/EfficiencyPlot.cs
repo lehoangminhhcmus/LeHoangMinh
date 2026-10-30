@@ -19,10 +19,16 @@ public sealed class EfficiencyPlot : Control
         base.Render(dc);dc.DrawRectangle(Brushes.White,null,new Rect(Bounds.Size));
         if(Profile is not {} p){Text(dc,"Thêm điểm chuẩn rồi bấm Fit để xem đường cong và phần dư.",30,40,16);return;}
         if(Bounds.Width<180||Bounds.Height<220)return;
-        double left=85,width=Math.Max(1,Bounds.Width-120),height=Math.Max(60,(Bounds.Height-145)*.65),top=35,resTop=top+height+65,resHeight=Math.Max(45,Bounds.Height-resTop-40);
+        double left=85,width=Math.Max(1,Bounds.Width-120),top=35,usable=Bounds.Height-105;
+        double height=(usable-40)*.65,resTop=top+height+40,resHeight=usable-height-40;
         double x0=Math.Log(p.MinEnergy),x1=Math.Log(p.MaxEnergy);
         var logValues=p.Definition.Points.SelectMany(o=>new[]{Math.Log(o.Efficiency)-o.TotalRelativeSigma,Math.Log(o.Efficiency)+o.TotalRelativeSigma}).ToList();
-        for(int i=0;i<=120;i++)logValues.Add(Math.Log(p.Evaluate(Math.Clamp(Math.Exp(x0+(x1-x0)*i/120),p.MinEnergy,p.MaxEnergy)).Value));
+        for(int i=0;i<=120;i++)
+        {
+            var estimate=p.Evaluate(Math.Clamp(Math.Exp(x0+(x1-x0)*i/120),p.MinEnergy,p.MaxEnergy));
+            double log=Math.Log(estimate.Value),sigma=estimate.Sigma/estimate.Value;
+            logValues.Add(log-sigma);logValues.Add(log+sigma);
+        }
         double y0=logValues.Min()-.35,y1=logValues.Max()+.35;
         double X(double energy)=>left+(Math.Log(energy)-x0)/(x1-x0)*width;
         double Y(double log)=>top+height-(log-y0)/(y1-y0)*height;
@@ -36,7 +42,7 @@ public sealed class EfficiencyPlot : Control
             Text(dc,Math.Exp(log).ToString("G3"),left-8,Y(log)-8,12,TextAlignment.Right);
             Text(dc,Math.Exp(x0+f*(x1-x0)).ToString("0.##"),x,resTop+resHeight+8,12,TextAlignment.Center);
         }
-        Text(dc,"Hiệu suất đỉnh (fraction), trục log; điểm ±1σ • đường fit GLS",left,8);
+        Text(dc,"Hiệu suất đỉnh (fraction), trục log; điểm ±1σ • fit GLS và biên ±1σ",left,8);
         Text(dc,"Phần dư ln(ε đo/ε fit) / σ_lnε đầu vào (không phải phần dư studentized)",left,resTop-25,11);
         foreach(double value in new[]{-3d,0,3d})
         {
@@ -52,10 +58,22 @@ public sealed class EfficiencyPlot : Control
             c.EndFigure(false);
         }
         dc.DrawGeometry(null,new Pen(Brushes.SteelBlue,2),curve);
+        // Log-space model uncertainty, separate from measured-point error bars.
+        foreach(double sign in new[]{-1d,1d})
+        {
+            Point? previous=null;
+            for(int i=0;i<=160;i++)
+            {
+                double e=Math.Clamp(Math.Exp(x0+(x1-x0)*i/160),p.MinEnergy,p.MaxEnergy);var estimate=p.Evaluate(e);
+                var current=new Point(X(e),Y(Math.Log(estimate.Value)+sign*estimate.Sigma/estimate.Value));
+                if(previous is {} start)dc.DrawLine(new Pen(Brushes.LightSteelBlue,1),start,current);
+                previous=current;
+            }
+        }
         int index=0;foreach(var point in p.Definition.Points)
         {
             double x=X(point.Gamma.EnergyKeV),y=Math.Log(point.Efficiency),sigma=point.TotalRelativeSigma;
-            IBrush color=Math.Abs(p.ResidualSigma[index])>3?Brushes.Firebrick:Brushes.DarkBlue;
+            IBrush color=Math.Abs(p.ResidualSigma[index])>3||point.QualityWarnings.Length>0?Brushes.Firebrick:Brushes.DarkBlue;
             var pen=new Pen(color,1.2);dc.DrawLine(pen,new Point(x,Y(y-sigma)),new Point(x,Y(y+sigma)));
             dc.DrawLine(pen,new Point(x-4,Y(y-sigma)),new Point(x+4,Y(y-sigma)));dc.DrawLine(pen,new Point(x-4,Y(y+sigma)),new Point(x+4,Y(y+sigma)));
             dc.DrawEllipse(color,null,new Point(x,Y(y)),3.5,3.5);dc.DrawEllipse(color,null,new Point(x,R(p.ResidualSigma[index])),3.5,3.5);index++;

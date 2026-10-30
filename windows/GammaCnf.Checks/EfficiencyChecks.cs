@@ -43,7 +43,8 @@ internal static class EfficiencyChecks
         Reject(()=>EfficiencyProfile.Fit("Mismatch",Geometry,points.Select((o,i)=>i==0?o with{Geometry=Geometry with{DistanceMm=50}}:o),2),"Reject mixed calibration geometry");
         Reject(()=>EfficiencyProfile.Fit("Certificate conflict",Geometry,points.Select((o,i)=>i==0?o with{Source=Source with{ActivityBq=20000}}:o),2),"Reject inconsistent source certificate data");
         Reject(()=>(points[0] with{Gamma=points[0].Gamma with{Probability=2}}).Validate(),"Reject gamma probability outside fraction range");
-        Reject(()=>(points[0] with{ReducedChiSquare=4}).Validate(),"Reject poor ROI for efficiency calibration");
+        check((points[0] with{ReducedChiSquare=4}).QualityWarnings.Length>0,"Warn about poor ROI for efficiency calibration");
+        (points[0] with{ReducedChiSquare=4}).Validate();
         Reject(()=>(points[0] with{CentroidKeV=110}).Validate(),"Reject incorrectly assigned gamma line");
         Reject(()=>(points[0] with{LiveSeconds=1300}).Validate(),"Reject live time greater than real time");
         Reject(()=>(points[0] with{Area=1e12}).Validate(),"Reject efficiency above one");
@@ -71,7 +72,39 @@ internal static class EfficiencyChecks
         check(Math.Abs(corrected.BqAtStart/(truth*1.2)-1)<1e-8,"Explicit correction factor multiplies activity");
         var bad=points.Select((o,i)=>i==2?o with{Area=o.Area*1.8}:o).ToArray();var badProfile=EfficiencyProfile.Fit("Bad",Geometry,bad,2);
         check(badProfile.ChiSquarePerDof>3,"Flag inconsistent efficiency calibration points");
-        Reject(()=>ActivityAnalysis.Calculate(badProfile,roi,request),"Block activity from poor efficiency calibration");
+        check(ActivityAnalysis.Calculate(badProfile,roi,request).Notes.Contains("CẢNH BÁO"),"Allow activity with poor calibration and retain warning");
+        var weak=points[0] with{AreaSigma=points[0].Area/2};weak.Validate();
+        check(weak.QualityWarnings.Length>0,"Low-significance calibration point is accepted with warning");
+        check(ActivityAnalysis.Calculate(p,roi with{ReducedChiSquare=4},request).Notes.Contains("ROI mẫu >3"),"Poor sample ROI produces warning in activity notes");
+        for(int degree=1;degree<=6;degree++)
+        {
+            // Exercise genuinely nonzero high-order terms, including a narrow energy interval.
+            foreach(bool narrow in new[]{false,true})
+            {
+                double lower=narrow?990:80,upper=narrow?1010:1800;
+                double center=(Math.Log(lower/1000)+Math.Log(upper/1000))/2,scale=Math.Log(upper/lower)/2;
+                double Expected(double e){double z=(Math.Log(e/1000)-center)/scale;return Math.Exp(-5+.04*Math.Pow(z,degree));}
+                var many=Enumerable.Range(0,degree+4).Select(i=>
+                {
+                    double e=lower*Math.Pow(upper/lower,(double)i/(degree+3));var seed=points[0];
+                    double area=RadioactiveDecay.Exposure(seed.Source,seed.MeasuredAt,seed.LiveSeconds,seed.RealSeconds)*seed.Gamma.Probability*Expected(e);
+                    return seed with{Gamma=seed.Gamma with{EnergyKeV=e},CentroidKeV=e,Area=area,AreaSigma=area*.01,RoiStart=i*30,RoiEnd=i*30+20};
+                }).ToArray();
+                var high=EfficiencyProfile.Fit("Degree test",Geometry,many,degree);
+                check(Math.Abs(high.Evaluate(Math.Sqrt(lower*upper)).Value/Expected(Math.Sqrt(lower*upper))-1)<1e-8&&high.Evaluate(lower).Sigma>0,$"Stable degree {degree} fit and uncertainty (narrow={narrow})");
+                string temporary=Path.GetTempFileName();
+                try{high.Save(temporary);var reloaded=EfficiencyProfile.Load(temporary);check(Math.Abs(reloaded.Evaluate(lower).Value/high.Evaluate(lower).Value-1)<1e-12,$"Degree {degree} JSON roundtrip (narrow={narrow})");}
+                finally{File.Delete(temporary);}
+            }
+        }
+        var overshoot=Enumerable.Range(0,10).Select(i=>
+        {
+            double z=i<5?-1+i*.2:.2+(i-5)*.2,e=1000*Math.Exp(z);var seed=points[0];
+            double area=RadioactiveDecay.Exposure(seed.Source,seed.MeasuredAt,seed.LiveSeconds,seed.RealSeconds)*seed.Gamma.Probability*Math.Exp(.01-z*z);
+            return seed with{Gamma=seed.Gamma with{EnergyKeV=e},CentroidKeV=e,Area=area,AreaSigma=area*.01,RoiStart=i*30,RoiEnd=i*30+20};
+        }).ToArray();
+        Reject(()=>EfficiencyProfile.Fit("Interior overshoot",Geometry,overshoot,6),"Degree six rejects efficiency above one between calibration points");
+        Reject(()=>EfficiencyProfile.Fit("Unsupported",Geometry,points,7),"Reject efficiency degree above six");
         string folder=Path.Combine(Path.GetTempPath(),"efficiency-check-"+Guid.NewGuid());Directory.CreateDirectory(folder);
         try
         {

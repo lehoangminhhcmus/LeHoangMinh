@@ -35,6 +35,7 @@
       <TextBlock Text="a2"/><TextBox x:Name="A2" Text="0" Margin="0,3,0,8"/>
       <TextBlock Text="a3"/><TextBox x:Name="A3" Text="0" Margin="0,3,0,8"/>
       <Button Content="Áp dụng hệ số" Click="ApplyCalibrationClick" Margin="0,8,0,8"/>
+      <local:EnergyPlot x:Name="CalibrationPlot" Height="240" Margin="0,8"/>
       <Button Content="Lưu hiệu chuẩn vào CNF…" Click="SaveCnfClick" Margin="0,0,0,8"/>
       <TextBlock Text="Chọn lại file gốc để lưu chồng. App tạo bản .bak trước khi thay file. Chỉ ghi hiệu chuẩn; không ghi số đếm sau trừ phông hoặc ROI vào CNF. Kết quả phân tích cũ bên trong CNF không được tính lại." TextWrapping="Wrap" Foreground="#9A5900"/>
      </StackPanel></ScrollViewer>

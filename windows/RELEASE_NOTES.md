@@ -1,32 +1,22 @@
-# Gamma CNF Reader v0.8.0 — chuẩn hiệu suất nhập gọn
+# Gamma CNF Reader v0.9.0 — đa thức hiệu suất bậc 1–6 và đồ thị chuẩn
 
-Windows 10/11 x64, macOS 14+ Apple Silicon và Intel; miễn phí như trước.
+Windows 10/11 x64, macOS 14+ Apple Silicon và Intel.
 
-- Mặc định chỉ chọn ROI đã fit, nhập **hoạt độ tại đầu phép đo (Bq)** và **Pγ (%)**.
-  Live time từ CNF; năng lượng bỏ trống dùng tâm ROI. Cơ bản ε=N/(A×t×Pγ).
-- Thu gọn các phần thông tin bổ sung; chứng chỉ, mã nguồn, đồng vị, hình học,
-  khoảng cách, tham chiếu và sai số không còn bắt buộc để tính hiệu suất.
-- Chọn **Tự quy đổi A từ ngày chứng nhận** nếu cần; lúc đó chỉ yêu cầu thêm ngày
-  có múi giờ, bán rã và real time. Không nhập bán rã nghĩa là chưa hiệu chỉnh phân
-  rã trong phép đo; A ở chế độ cơ bản phải do người dùng quy đổi về đầu đo.
-- K bỏ trống =1; sai số bỏ trống ghi **chưa cung cấp**. Khoảng ± chỉ gồm các
-  thành phần đã có, không được coi là ngân sách sai số đầy đủ. Bỏ trống nhận dạng
-  thì không tự gán tương quan nguồn/Pγ không có căn cứ.
-- JSON schema 2 bảo toàn chế độ tính và thông tin còn thiếu; đọc tương thích
-  schema 1 của v0.7.0. Không mở schema 2 bằng bản cũ. TXT ghi thêm chế độ hoạt độ
-  và thông tin chưa cung cấp; sửa dòng phiên bản báo cáo về 0.8.0.
-- Giữ kiểm tra số học/vật lý: hoạt độ và live time dương, Pγ hợp lệ, ROI fit đạt,
-  đủ điểm/đúng miền năng lượng và chất lượng fit. Hình học phù hợp vẫn là điều kiện
-  vật lý; bỏ trống tên không chứng minh phép đo khớp bộ chuẩn.
+- Ngưỡng diện tích điểm chuẩn <3σ, χ²/ν ROI >3, χ²/ν đường chuẩn >3 và phần dư
+  vượt 3σ trở thành cảnh báo. Vẫn cho fit và tính hoạt độ; cảnh báo theo kết quả
+  và báo cáo TXT để người dùng kiểm tra trước khi sử dụng.
+- Chọn đa thức hiệu suất bậc 1–6, cần ít nhất bậc+2 năng lượng khác nhau.
+  Chuẩn hóa biến khi fit GLS để ổn định số học; kiểm tra cực trị trong toàn miền
+  năng lượng để ngăn hiệu suất dự đoán vượt 1 giữa các điểm chuẩn.
+- Thêm đồ thị năng lượng theo kênh trong tab Hiệu chuẩn, cập nhật theo phổ và
+  hệ số đã áp dụng. Ghi CNF tiếp tục dùng bốn hệ số a0–a3 đã kiểm chứng.
+- Đồ thị hiệu suất có sai số điểm, hai biên sai số mô hình ±1σ trong không gian
+  log và phần dư; điểm có cảnh báo chất lượng được tô đỏ.
+- Giữ dữ liệu nhập gọn v0.8.0, đọc JSON schema 1/2 và tính lại từ điểm gốc.
+  Dữ liệu sai vật lý, fit suy biến, hình học không khớp và ngoại suy vẫn bị từ chối.
 
-[Hướng dẫn nhập gọn](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).
-Hướng dẫn Word v0.7.0 mô tả luồng cũ; xem hướng dẫn nhập gọn cho những thay đổi trên.
+Kiểm tra tại môi trường Linux: 196 kiểm tra dữ liệu đạt; build WPF Windows đạt;
+smoke test giao diện Avalonia đạt và xuất được ảnh đồ thị năng lượng/hiệu suất.
+Workflow phát hành tiếp tục kiểm tra WPF và đóng gói Windows/macOS trên máy native.
 
-Kiểm tra: 179 kiểm tra dữ liệu với phổ riêng, 168 kiểm tra chung khi không có
-phổ riêng; smoke test WPF và macOS native gồm luồng đầy đủ và luồng chỉ có đầu
-vào tối thiểu, lưu/đọc JSON và các chức năng phổ/ROI hiện có.
-
-Mac: tải đúng DMG, kéo app vào Applications. Chưa ký Apple Developer ID/notarize;
-nếu bị chặn lần đầu, dùng Privacy & Security → Open Anyway cho riêng app. Windows
-chưa ký số nhà phát hành. Kiểm chứng kết quả với nguồn chuẩn độc lập trước khi
-sử dụng chính thức; chưa xác nhận bằng nguồn chuẩn thực tế/Genie 2000.
+[Hướng dẫn sử dụng](https://github.com/lehoangminhhcmus/LeHoangMinh/blob/main/docs/Chuan_hieu_suat_nhap_gon_v0.8.0.md).

@@ -10,7 +10,8 @@ dẫn Word v0.7.0; không cần điền đầy đủ chứng chỉ/hình học �
 3. Nhập **hoạt độ nguồn tại đầu phép đo (Bq)** và **xác suất phát gamma (%)**.
    Năng lượng để trống sẽ dùng tâm ROI; có thể nhập năng lượng vạch chính xác.
 4. Bấm **Thêm ROI đã chọn làm điểm chuẩn**. Lặp cho các vạch tiếp theo.
-5. Bậc 1 mặc định cần ít nhất 3 năng lượng khác nhau; bậc 2 cần 4, bậc 3 cần 5.
+5. Chọn đa thức hiệu suất bậc 1–6. Cần ít nhất bậc+2 năng lượng khác nhau
+   (bậc 1 cần 3; bậc 6 cần 8), tối đa 500 điểm.
    **Fit đường chuẩn**, kiểm tra đường cong/phần dư, rồi **Lưu bộ chuẩn JSON…**.
 
 Công thức cơ bản: `ε = N_Gaussian / (A_đầu_đo × live_time × Pγ_fraction)`.
@@ -62,3 +63,20 @@ bằng phép đo độc lập trước khi dùng định lượng chính thức.
 
 Các chức năng hoạt độ và điều kiện chất lượng ROI/đường chuẩn vẫn giữ như trước;
 những dữ liệu cần để quy đổi hoạt độ về ngày khác vẫn phải được cung cấp.
+
+## Cập nhật tiếp theo từ v0.8.0
+
+- Diện tích điểm chuẩn <3σ, χ²/ν ROI >3, χ²/ν đường chuẩn >3 hoặc phần dư
+  vượt 3σ được hiển thị thành cảnh báo. Vẫn cho fit và tính hoạt độ; cảnh báo
+  đi kèm kết quả và báo cáo TXT. Cần kiểm tra ý nghĩa vật lý trước khi dùng kết quả.
+- Đa thức **hiệu suất** bậc 1–6 dùng GLS trên ln ε theo ln(E/1000 keV).
+  Fit dùng biến được dịch và chuẩn hóa để ổn định số học; hệ số và covariance
+  xuất ra vẫn theo công thức trên. JSON cũ được mở và tính lại từ điểm gốc.
+- Tab **Hiệu chuẩn** có đồ thị năng lượng theo kênh cho hệ số đang áp dụng.
+  Nhập hệ số rồi bấm **Áp dụng hệ số** để cập nhật. Khi đổi phổ, đồ thị theo phổ
+  đang chọn. Định dạng ghi CNF vẫn dùng bốn hệ số a0–a3 đã được kiểm chứng.
+- Tab **Đường chuẩn và phần dư** hiển thị hiệu suất trên trục log, sai số điểm
+  ±1σ, đường GLS, hai biên sai số mô hình ±1σ trong không gian log và phần dư.
+  Điểm có cảnh báo chất lượng được tô đỏ. Cả Windows và macOS dùng cùng cách tính.
+- Dữ liệu không hợp lệ, fit suy biến, hiệu suất ngoài (0,1], hình học khác nhau,
+  ROI trùng/chồng và ngoại suy vẫn bị từ chối.

@@ -83,12 +83,13 @@ public sealed record EfficiencyObservation(MeasurementGeometry Geometry,Standard
         Guard.Positive(Area,"Diện tích đỉnh");Guard.Positive(AreaSigma,"Sai số diện tích");Guard.Positive(CentroidKeV,"Tâm đỉnh keV");Guard.Positive(FwhmKeV,"FWHM keV");Guard.Nonnegative(ReducedChiSquare,"Chi2/ν");
         Guard.Nonnegative(BackgroundScale,"Hệ số phông");Guard.Positive(Correction,"K đỉnh nguồn chuẩn");Guard.Nonnegative(CorrectionSigma,"Sai số K đỉnh nguồn chuẩn");
         if(!Source.OptionalMetadata&&(Correction!=1||CorrectionSigma!=0)&&string.IsNullOrWhiteSpace(CorrectionNotes))throw new CnfException("Ghi căn cứ K hiệu chỉnh đỉnh nguồn chuẩn.");
-        if(Area/AreaSigma<3||ReducedChiSquare>3||RoiStart<0||RoiEnd-RoiStart<8||string.IsNullOrWhiteSpace(MeasurementId))
-            throw new CnfException("Điểm chuẩn cần ROI hợp lệ, diện tích ≥3σ và χ²/ν ≤3.");
+        if(RoiStart<0||RoiEnd-RoiStart<8||string.IsNullOrWhiteSpace(MeasurementId))
+            throw new CnfException("Điểm chuẩn cần ROI hợp lệ và mã phép đo.");
         if(Math.Abs(CentroidKeV-Gamma.EnergyKeV)>Math.Max(.2,FwhmKeV/2))throw new CnfException("Vạch gamma không khớp tâm ROI (lệch hơn nửa FWHM hoặc 0,2 keV).");
         double epsilon=Efficiency;
         if(!double.IsFinite(epsilon)||epsilon<=0||epsilon>1)throw new CnfException("Hiệu suất đỉnh phải trong (0,1]. Kiểm tra Bq, %, thời gian, phân rã và ghép vạch.");
     }
+    public string[] QualityWarnings=>new[]{Area/AreaSigma<3?"Diện tích điểm chuẩn <3σ.":null,ReducedChiSquare>3?"χ²/ν ROI chuẩn >3.":null}.OfType<string>().ToArray();
     public double Efficiency=>Area*Correction/(RadioactiveDecay.Exposure(Source,MeasuredAt,LiveSeconds,RealSeconds)*Gamma.Probability);
     public string HalfLifeKey=>(string.IsNullOrWhiteSpace(Source.HalfLifeReference)||string.IsNullOrWhiteSpace(Source.Nuclide))?$"source:{Source.Id.Trim().ToUpperInvariant()}:half-life":$"half-life:{Source.Nuclide.Trim().ToUpperInvariant()}:{Source.HalfLifeReference.Trim().ToUpperInvariant()}";
     public string SourceKey=>Source.ActivityAtMeasurement?Source.Id+":"+MeasurementId:Source.Id;
@@ -117,16 +118,21 @@ public sealed class EfficiencyProfile
     public double[] ResidualSigma {get;}
     public double ChiSquarePerDof {get;}
     public string[] InputWarnings=>Definition.Points.SelectMany(p=>p.MissingInputs??[]).Distinct().ToArray();
+    public string[] QualityWarnings=>Definition.Points.SelectMany((p,i)=>p.QualityWarnings.Select(w=>$"Điểm {i+1}: {w}")).Concat(ChiSquarePerDof>3?["χ²/ν đường chuẩn >3."]:Array.Empty<string>()).Concat(ResidualSigma.Any(r=>Math.Abs(r)>3)?["Phần dư đường chuẩn vượt 3σ."]:Array.Empty<string>()).ToArray();
+    public string QualitySummary=>QualityWarnings.Length==0?"":"CẢNH BÁO: "+string.Join(" ",QualityWarnings)+" Kết quả cần được kiểm tra trước khi sử dụng.";
     public bool HasOptionalInputs=>InputWarnings.Length>0||Definition.Geometry.OptionalMetadata;
     public string InputSummary=>InputWarnings.Length==0?"":"Thông tin chưa cung cấp/giả định: "+string.Join("; ",InputWarnings)+". Sai số chỉ gồm các thành phần đã nhập; chưa phải ngân sách đầy đủ.";
     public double MinEnergy=>Definition.Points.Min(p=>p.Gamma.EnergyKeV);
     public double MaxEnergy=>Definition.Points.Max(p=>p.Gamma.EnergyKeV);
+    private double center,scale;
+    private double[] fitCoefficients=[];
+    private double[,] fitCovariance=new double[0,0];
     private EfficiencyProfile(EfficiencyFile file,double[] coefficients,double[,] covariance,double[] residuals,double chi2)
     {Definition=file;Coefficients=coefficients;Covariance=covariance;ResidualSigma=residuals;ChiSquarePerDof=chi2;}
     public static EfficiencyProfile Fit(string name,MeasurementGeometry geometry,IEnumerable<EfficiencyObservation> observations,int degree,DateTimeOffset? created=null)
     {
         geometry.Validate();var points=observations.ToArray();
-        if(string.IsNullOrWhiteSpace(name)||degree is <1 or >3||points.Length<degree+2||points.Length>500)throw new CnfException("Đặt tên bộ chuẩn; bậc 1–3 cần ít nhất bậc+2 điểm, tối đa 500 điểm.");
+        if(string.IsNullOrWhiteSpace(name)||degree is <1 or >6||points.Length<degree+2||points.Length>500)throw new CnfException("Đặt tên bộ chuẩn; bậc 1–6 cần ít nhất bậc+2 điểm, tối đa 500 điểm.");
         foreach(var p in points){p.Validate();if(!geometry.Matches(p.Geometry))throw new CnfException("Không gộp điểm chuẩn khác detector/hình học/khoảng cách/ghi chú cấu hình.");}
         foreach(var group in points.Where(p=>!p.Source.Id.StartsWith("auto:")).GroupBy(p=>p.SourceKey.Trim().ToUpperInvariant()))
             if(group.Any(p=>(p.Source with{OptionalMetadata=group.First().Source.OptionalMetadata})!=group.First().Source))throw new CnfException("Cùng mã nguồn phải có cùng thông tin chứng chỉ, đồng vị, hoạt độ và bán rã.");
@@ -139,10 +145,13 @@ public sealed class EfficiencyProfile
                 throw new CnfException("Không dùng lặp hoặc chồng ROI của cùng phép đo làm các điểm chuẩn độc lập.");
         if(points.Select(p=>p.Gamma.EnergyKeV).Distinct().Count()<degree+2)throw new CnfException("Cần ít nhất bậc+2 năng lượng khác nhau.");
         int n=points.Length,m=degree+1;var x=new double[n][];var y=new double[n];var noise=new double[n,n];
+        double center=(Math.Log(points.Min(p=>p.Gamma.EnergyKeV)/1000)+Math.Log(points.Max(p=>p.Gamma.EnergyKeV)/1000))/2;
+        double scale=(Math.Log(points.Max(p=>p.Gamma.EnergyKeV)/1000)-Math.Log(points.Min(p=>p.Gamma.EnergyKeV)/1000))/2;
+        Guard.Positive(scale,"Độ rộng miền log năng lượng");
         var shared=points.Select(p=>p.Systematics()).ToArray();
         for(int i=0;i<n;i++)
         {
-            x[i]=Basis(points[i].Gamma.EnergyKeV,m);y[i]=Math.Log(points[i].Efficiency);
+            x[i]=Basis(points[i].Gamma.EnergyKeV,m,center,scale);y[i]=Math.Log(points[i].Efficiency);
             for(int j=0;j<n;j++)noise[i,j]=(i==j?points[i].IndependentLogVariance:0)+shared[i].Sum(k=>shared[j].GetValueOrDefault(k.Key)*k.Value);
         }
         double[,] precision=LinearAlgebra.InversePositive(noise);
@@ -153,28 +162,46 @@ public sealed class EfficiencyProfile
         var residuals=new double[n];var r=new double[n];
         for(int i=0;i<n;i++){r[i]=y[i]-x[i].Zip(c,(a,b)=>a*b).Sum();residuals[i]=r[i]/Math.Sqrt(noise[i,i]);}
         double chi2=r.Zip(LinearAlgebra.Multiply(precision,r),(a,b)=>a*b).Sum()/(n-m);
-        var model=new EfficiencyProfile(new(2,name,geometry,created??DateTimeOffset.UtcNow,degree,points),c,covariance,residuals,chi2);
-        // Validate all extrema of the log-polynomial, rather than only sampled energies.
-        double lo=Math.Log(model.MinEnergy/1000),hi=Math.Log(model.MaxEnergy/1000);
-        var extrema=new List<double>{lo,hi};
-        if(degree==2&&c[2]!=0)extrema.Add(-c[1]/(2*c[2]));
-        if(degree==3)
+        // Convert the centered/scaled fit back to the documented ln(E/1000) coefficients.
+        var transform=new double[m,m];
+        for(int j=0;j<m;j++)for(int k=0;k<=j;k++)
         {
-            double a=3*c[3],b=2*c[2],d=b*b-4*a*c[1];
-            if(Math.Abs(a)<1e-15){if(b!=0)extrema.Add(-c[1]/b);}
-            else if(d>=0){extrema.Add((-b-Math.Sqrt(d))/(2*a));extrema.Add((-b+Math.Sqrt(d))/(2*a));}
+            double choose=1;for(int q=1;q<=k;q++)choose*= (double)(j-q+1)/q;
+            transform[k,j]=choose*Math.Pow(-center,j-k)/Math.Pow(scale,j);
         }
-        if(extrema.Where(t=>t>=lo&&t<=hi).Any(t=>EnergyCalibration.Evaluate(c,t)>0))throw new CnfException("Đường fit dự đoán hiệu suất >1 trong miền chuẩn; giảm bậc hoặc kiểm tra điểm chuẩn.");
-        if(!double.IsFinite(chi2)||c.Any(v=>!double.IsFinite(v)))throw new CnfException("Fit hiệu suất không hữu hạn.");
+        var publicC=LinearAlgebra.Multiply(transform,c);var publicCov=new double[m,m];
+        for(int a=0;a<m;a++)for(int b=0;b<m;b++)for(int i=0;i<m;i++)for(int j=0;j<m;j++)publicCov[a,b]+=transform[a,i]*covariance[i,j]*transform[b,j];
+        var model=new EfficiencyProfile(new(2,name,geometry,created??DateTimeOffset.UtcNow,degree,points),publicC,publicCov,residuals,chi2){center=center,scale=scale,fitCoefficients=c,fitCovariance=covariance};
+        if(!double.IsFinite(chi2)||c.Any(v=>!double.IsFinite(v))||publicC.Any(v=>!double.IsFinite(v))||publicCov.Cast<double>().Any(v=>!double.IsFinite(v)))throw new CnfException("Fit hiệu suất không hữu hạn.");
+        // Check every stationary point, including even-multiplicity derivative roots.
+        var extrema=PolynomialRoots(c.Skip(1).Select((v,i)=>v*(i+1)).ToArray(),-1,1).Concat(new[]{-1d,1d});
+        if(extrema.Any(t=>EnergyCalibration.Evaluate(c,t)>0))throw new CnfException("Đường fit dự đoán hiệu suất >1 trong miền chuẩn; giảm bậc hoặc kiểm tra điểm chuẩn.");
         return model;
     }
-    private static double[] Basis(double energy,int count)
-    {Guard.Positive(energy,"Năng lượng");double t=Math.Log(energy/1000);var b=new double[count];b[0]=1;for(int i=1;i<count;i++)b[i]=b[i-1]*t;return b;}
+    private static IEnumerable<double> PolynomialRoots(double[] c,double lo,double hi)
+    {
+        int degree=c.Length-1;while(degree>0&&c[degree]==0)degree--;
+        if(degree==0)return Array.Empty<double>();
+        if(degree==1){double r=-c[0]/c[1];return r>=lo&&r<=hi?[r]:Array.Empty<double>();}
+        var boundaries=PolynomialRoots(c.Take(degree+1).Skip(1).Select((v,i)=>v*(i+1)).ToArray(),lo,hi).Append(lo).Append(hi).Order().ToArray();
+        var roots=new List<double>();
+        foreach(double t in boundaries)if(Math.Abs(EnergyCalibration.Evaluate(c,t))<1e-12)roots.Add(t);
+        for(int i=1;i<boundaries.Length;i++)
+        {
+            double a=boundaries[i-1],b=boundaries[i],fa=EnergyCalibration.Evaluate(c,a),fb=EnergyCalibration.Evaluate(c,b);
+            if(Math.Sign(fa)==Math.Sign(fb)||fa==0||fb==0)continue;
+            for(int j=0;j<80;j++){double mid=(a+b)/2,f=EnergyCalibration.Evaluate(c,mid);if(f==0){a=b=mid;break;}if(Math.Sign(f)==Math.Sign(fa)){a=mid;fa=f;}else b=mid;}
+            roots.Add((a+b)/2);
+        }
+        return roots;
+    }
+    private static double[] Basis(double energy,int count,double center=0,double scale=1)
+    {Guard.Positive(energy,"Năng lượng");double t=(Math.Log(energy/1000)-center)/scale;var b=new double[count];b[0]=1;for(int i=1;i<count;i++)b[i]=b[i-1]*t;return b;}
     public EfficiencyEstimate Evaluate(double energy)
     {
         if(!double.IsFinite(energy)||energy<MinEnergy||energy>MaxEnergy)throw new CnfException("Năng lượng ngoài miền chuẩn. Không cho phép ngoại suy.");
-        double[] b=Basis(energy,Coefficients.Length);double value=Math.Exp(b.Zip(Coefficients,(x,y)=>x*y).Sum());
-        double variance=b.Zip(LinearAlgebra.Multiply(Covariance,b),(x,y)=>x*y).Sum();
+        double[] b=Basis(energy,Coefficients.Length,center,scale);double value=Math.Exp(b.Zip(fitCoefficients,(x,y)=>x*y).Sum());
+        double variance=b.Zip(LinearAlgebra.Multiply(fitCovariance,b),(x,y)=>x*y).Sum();
         if(!double.IsFinite(value)||value<=0||value>1||!double.IsFinite(variance)||variance<0)throw new CnfException("Hiệu suất hoặc sai số mô hình không hợp lệ.");
         return new(value,value*Math.Sqrt(variance));
     }
@@ -188,9 +215,9 @@ public sealed class EfficiencyProfile
         for(int i=0;i<n;i++)
         {
             double weight=0;for(int j=0;j<n;j++)weight+=precision[i,j]*shared[j].GetValueOrDefault(key);
-            var basis=Basis(Definition.Points[i].Gamma.EnergyKeV,m);for(int a=0;a<m;a++)rhs[a]+=basis[a]*weight;
+            var basis=Basis(Definition.Points[i].Gamma.EnergyKeV,m,center,scale);for(int a=0;a<m;a++)rhs[a]+=basis[a]*weight;
         }
-        return Basis(energy,m).Zip(LinearAlgebra.Multiply(Covariance,rhs),(a,b)=>a*b).Sum();
+        return Basis(energy,m,center,scale).Zip(LinearAlgebra.Multiply(fitCovariance,rhs),(a,b)=>a*b).Sum();
     }
     public void Save(string path)=>SaveDefinition(path,Definition);
     public static EfficiencyFile ReadDefinition(string path)
@@ -199,7 +226,7 @@ public sealed class EfficiencyProfile
         try
         {
             var file=JsonSerializer.Deserialize<EfficiencyFile>(File.ReadAllText(path))??throw new CnfException("JSON rỗng.");
-            if(file.SchemaVersion is not (1 or 2)||file.Points is null||file.Geometry is null||file.Points.Length>500||file.Degree is <1 or >3||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>p is null||p.Geometry is null||p.Source is null||p.Gamma is null))throw new CnfException("Schema bộ chuẩn không được hỗ trợ hoặc thiếu dữ liệu.");
+            if(file.SchemaVersion is not (1 or 2)||file.Points is null||file.Geometry is null||file.Points.Length>500||file.Degree is <1 or >6||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>p is null||p.Geometry is null||p.Source is null||p.Gamma is null))throw new CnfException("Schema bộ chuẩn không được hỗ trợ hoặc thiếu dữ liệu.");
             if(file.SchemaVersion==1&&(file.Geometry.OptionalMetadata||file.Points.Any(p=>p.Source.ActivityAtMeasurement||p.Source.OptionalMetadata||p.Gamma.OptionalMetadata||p.MissingInputs is not null)))throw new CnfException("Dữ liệu nhập gọn cần schema 2 để không bị hiểu sai chế độ hoạt độ.");
             file.Geometry.Validate();foreach(var p in file.Points){p.Validate();if(!p.Geometry.Matches(file.Geometry))throw new CnfException("Điểm trong JSON khác hình học bộ chuẩn.");}
             return file;
@@ -211,7 +238,7 @@ public sealed class EfficiencyProfile
     public static void SaveDefinition(string path,EfficiencyFile file)
     {
         file.Geometry.Validate();foreach(var p in file.Points)p.Validate();
-        if(file.SchemaVersion is not (1 or 2)||file.Degree is <1 or >3||file.Points.Length>500||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>!p.Geometry.Matches(file.Geometry)))throw new CnfException("Bộ chuẩn nháp không hợp lệ.");
+        if(file.SchemaVersion is not (1 or 2)||file.Degree is <1 or >6||file.Points.Length>500||string.IsNullOrWhiteSpace(file.Name)||file.Points.Any(p=>!p.Geometry.Matches(file.Geometry)))throw new CnfException("Bộ chuẩn nháp không hợp lệ.");
         if(file.SchemaVersion==1&&(file.Geometry.OptionalMetadata||file.Points.Any(p=>p.Source.ActivityAtMeasurement||p.Source.OptionalMetadata||p.Gamma.OptionalMetadata||p.MissingInputs is not null)))throw new CnfException("Dữ liệu nhập gọn phải lưu schema 2.");
         string temp=Path.GetFullPath(path)+"."+Guid.NewGuid().ToString("N")+".tmp";
         try{File.WriteAllText(temp,JsonSerializer.Serialize(file,new JsonSerializerOptions{WriteIndented=true}),new UTF8Encoding(false));File.Move(temp,path,true);}

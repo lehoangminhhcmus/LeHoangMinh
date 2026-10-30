@@ -6,7 +6,7 @@ App Windows 10/11 x64 đọc và phân tích phổ gamma Canberra/Genie 2000 `.C
 
 Tải bộ cài tại [Releases](https://github.com/lehoangminhhcmus/LeHoangMinh/releases). Chạy `GammaCNFReader-CSharp-Setup.exe`, hoặc giải nén ZIP và chạy `GammaCNFReader.exe`. `Install.cmd` cài theo người dùng và tạo shortcut/mục gỡ cài đặt; không cần Administrator. Đóng app trước khi cập nhật/gỡ.
 
-Bản v0.8.0 được đặt là Latest, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
+Bản phát hành mới nhất tải tại trang Releases, chưa ký số. Bộ cài cập nhật vào thư mục của bản C# trước đó. Không tự đổi ứng dụng mặc định cho đuôi `.cnf`.
 
 ## Chuyển giữa các phổ đang mở (mới ở v0.5.0)
 

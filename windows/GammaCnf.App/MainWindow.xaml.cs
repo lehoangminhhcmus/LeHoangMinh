@@ -90,6 +90,12 @@ public partial class MainWindow : Window
         if(session is null)throw new Exception("UI did not load the synthetic CNF.");
         A0.Text="1.2";A1.Text="0.51";A2.Text="0";A3.Text="0";ApplyCalibration();
         if(Math.Abs(session.Sample.Energy(100)!.Value-52.2)>1e-9)throw new Exception("Calibration UI failed.");
+        if(CalibrationPlot.Coefficients is not {} applied||applied[0]!=1.2)throw new Exception("Energy graph did not update.");
+        UpdateLayout();CalibrationPlot.UpdateLayout();
+        var calibrationImage=new RenderTargetBitmap(Math.Max(1,(int)CalibrationPlot.ActualWidth),Math.Max(1,(int)CalibrationPlot.ActualHeight),96,96,PixelFormats.Pbgra32);
+        calibrationImage.Render(CalibrationPlot);var calibrationEncoder=new PngBitmapEncoder();calibrationEncoder.Frames.Add(BitmapFrame.Create(calibrationImage));
+        using(var calibrationFile=File.Create(Path.Combine(directory,"energy-calibration.png")))calibrationEncoder.Save(calibrationFile);
+
         pendingBackground=session.Sample with {Counts=Enumerable.Repeat(100u,session.Values.Length).ToArray(),LiveTime=500};
         pendingBackgroundPath="synthetic-background.cnf";TimeBasisChoice.SelectedIndex=0;
         ApplyBackgroundClick(this,new RoutedEventArgs());
@@ -237,9 +243,10 @@ public partial class MainWindow : Window
         else
         {
             rows.Clear();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.DetectedPeaks=[];Plot.Reset();
+            CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.8.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.9.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -251,12 +258,13 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.8.0";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.0";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
         CalibrationLabel.Text=(calibrationDirty?"[Chưa lưu CNF] ":"")+(s.Calibration is null?"Chỉ hiển thị kênh.":"E(ch), keV: "+string.Join("   ",s.Calibration.Select((c,i)=>$"a{i} = {c:G9}")));
         BackgroundLabel.Text=session.Background is null?"Chưa trừ phông":$"Phông: {Path.GetFileName(backgroundPath)}   •   {session.BackgroundOriginalSeconds:N3} → {session.BackgroundTargetSeconds:N3} s   •   α = {session.Scale:G9} ({scaleMode})   •   Tổng net: {session.Values.Sum():N3}";
+        CalibrationPlot.Coefficients=s.Calibration;CalibrationPlot.Channels=s.Counts.Length;CalibrationPlot.InvalidateVisual();
         EnergyCheck.IsEnabled=s.Calibration is not null;
         Plot.Spectrum=s;Plot.Values=session.Values;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;
         Refit();if(reset)Plot.Reset();else Plot.InvalidateVisual();

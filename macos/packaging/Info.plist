@@ -4,8 +4,8 @@
  <key>CFBundleName</key><string>Gamma CNF Reader</string>
  <key>CFBundleDisplayName</key><string>Gamma CNF Reader</string>
  <key>CFBundleIdentifier</key><string>vn.edu.hcmus.lehoangminh.gammacnfreader</string>
- <key>CFBundleVersion</key><string>0.8.0</string>
- <key>CFBundleShortVersionString</key><string>0.8.0</string>
+ <key>CFBundleVersion</key><string>0.9.0</string>
+ <key>CFBundleShortVersionString</key><string>0.9.0</string>
  <key>CFBundleExecutable</key><string>GammaCNFReader</string>
  <key>CFBundlePackageType</key><string>APPL</string>
  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

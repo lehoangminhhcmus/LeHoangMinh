@@ -15,11 +15,10 @@ public static class ActivityAnalysis
     {
         request.Geometry.Validate();request.Gamma.Validate();RadioactiveDecay.ValidateTimes(request.LiveSeconds,request.RealSeconds);
         if(!profile.Definition.Geometry.Matches(request.Geometry))throw new CnfException("Detector/hình học/khoảng cách/ghi chú mẫu khác bộ chuẩn. Không tự chuyển đổi hiệu suất.");
-        if(profile.ChiSquarePerDof>3||profile.ResidualSigma.Any(r=>Math.Abs(r)>3))throw new CnfException("Đường chuẩn có χ²/ν hoặc phần dư >3; cần kiểm tra điểm chuẩn trước khi tính hoạt độ.");
         if(string.IsNullOrWhiteSpace(request.Nuclide)||string.IsNullOrWhiteSpace(request.MeasurementId))throw new CnfException("Nhập đồng vị và thông tin phép đo.");
         if(profile.Definition.Points.Any(p=>p.MeasurementId==request.MeasurementId))throw new CnfException("Đây là phổ đã dùng để tạo đường chuẩn. Tính hoạt độ yêu cầu phép đo mẫu độc lập.");
-        if(!roi.Success||!(roi.PeakArea>0)||!(roi.AreaError>0)||roi.ReducedChiSquare is null or >3||roi.EnergyKeV is null||roi.FwhmKeV is null)
-            throw new CnfException("Chọn ROI fit hợp lệ với hiệu chuẩn năng lượng và χ²/ν ≤3.");
+        if(!roi.Success||!(roi.PeakArea>0)||!(roi.AreaError>0)||roi.ReducedChiSquare is null||roi.EnergyKeV is null||roi.FwhmKeV is null)
+            throw new CnfException("Chọn ROI fit hợp lệ với hiệu chuẩn năng lượng.");
         if(Math.Abs(roi.EnergyKeV.Value-request.Gamma.EnergyKeV)>Math.Max(.2,roi.FwhmKeV.Value/2))throw new CnfException("Vạch gamma không khớp ROI.");
         Guard.Positive(request.HalfLifeDays,"Chu kỳ bán rã");Guard.Nonnegative(request.HalfLifeSigmaDays,"Sai số bán rã");
         if(request.HalfLifeSigmaDays/request.HalfLifeDays>.2)throw new CnfException("Sai số bán rã vượt 20%; ngoài phạm vi lan truyền tuyến tính.");
@@ -58,7 +57,7 @@ public static class ActivityAnalysis
         if(specific.HasValue){Guard.Positive(specific.Value,"Bq/kg");Guard.Nonnegative(specificSigma!.Value,"Sai số Bq/kg");}
         return new(start,start*Math.Sqrt(vs),reported,reported*Math.Sqrt(vr),specific,specificSigma,estimate,
             RadioactiveDecay.AverageFactor(request.HalfLifeDays,request.RealSeconds),
-            "Sai số 1σ tuyến tính: diện tích ROI, covariance đường chuẩn, xác suất gamma (có tương quan nếu dùng cùng vạch/tham chiếu), bán rã (có tương quan khi cùng tham chiếu), K và khối lượng. Không tự hiệu chỉnh tự hấp thụ/trùng phùng tổng. Giả định tỷ lệ live/real đều theo thời gian; sai số thời điểm/live time chưa được cung cấp. Chưa gộp các vạch thành hoạt độ chung. "+profile.InputSummary);
+            (profile.QualitySummary+" "+(roi.ReducedChiSquare>3?"CẢNH BÁO: χ²/ν ROI mẫu >3. ":"")+"Sai số 1σ tuyến tính: diện tích ROI, covariance đường chuẩn, xác suất gamma (có tương quan nếu dùng cùng vạch/tham chiếu), bán rã (có tương quan khi cùng tham chiếu), K và khối lượng. Không tự hiệu chỉnh tự hấp thụ/trùng phùng tổng. Giả định tỷ lệ live/real đều theo thời gian; sai số thời điểm/live time chưa được cung cấp. Chưa gộp các vạch thành hoạt độ chung. "+profile.InputSummary));
     }
 }
 public static class EfficiencyReports
@@ -68,10 +67,11 @@ public static class EfficiencyReports
     private static string Clean(string? s)=>(s??"").Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
     private static void ProfileHeader(StreamWriter w,EfficiencyProfile p)
     {
-        w.WriteLine("Gamma CNF Reader 0.8.0 — full-energy peak efficiency");
+        w.WriteLine("Gamma CNF Reader 0.9.0 — full-energy peak efficiency");
         w.WriteLine("Profile\t"+Clean(p.Definition.Name));w.WriteLine("Created\t"+p.Definition.CreatedAt.ToString("O"));
         var g=p.Definition.Geometry;
         w.WriteLine($"Detector\t{Clean(g.Detector)}\nGeometry\t{Clean(g.Configuration)}\nDistance_mm\t{(g.DistanceSpecified?F(g.DistanceMm):"NA")}\nConfiguration_notes\t{Clean(g.Notes)}");
+        w.WriteLine("Quality_warnings\t"+Clean(p.QualitySummary));
         w.WriteLine("Input_completeness\t"+Clean(p.InputSummary));
         w.WriteLine("Model\tln(epsilon) = sum c_j [ln(E_keV/1000)]^j; generalized least squares, absolute efficiencies (fraction).");
         w.WriteLine("Coefficients\t"+string.Join("\t",p.Coefficients.Select(c=>F(c))));
