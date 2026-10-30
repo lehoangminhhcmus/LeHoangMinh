@@ -274,7 +274,7 @@ public partial class MainWindow : Window
             CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.9.1";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.9.2";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -286,7 +286,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.1";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.2";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
@@ -459,6 +459,7 @@ public partial class MainWindow : Window
     });
     private void ModeChanged(object sender,RoutedEventArgs e)
     { if(Plot is null||restoringView)return;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;Plot.Reset(); }
+    private async void AboutClick(object sender,RoutedEventArgs e)=>await Dialogs.Message(this,ApplicationInfo.About,"Giới thiệu Gamma CNF Reader");
     private void ResetClick(object sender,RoutedEventArgs e)=>Plot.Reset();
     private void OnDragOver(object? sender,DragEventArgs e)
     {e.DragEffects=e.DataTransfer.Contains(DataFormat.File)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;}

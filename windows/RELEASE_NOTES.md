@@ -1,16 +1,13 @@
-# Gamma CNF Reader v0.9.1 — ngưỡng amplitude tối thiểu
+# Gamma CNF Reader v0.9.2 — thông tin tác giả
 
-- Thêm ô **Amplitude tối thiểu (counts/kênh trên nền)** trong phần dò đỉnh tự động
-  trên Windows/macOS. Mặc định 0: không lọc theo chiều cao.
-- Amplitude là chiều cao Gaussian ước lượng phía trên nền liên tục tuyến tính,
-  tính trên phổ đang dùng (sau trừ phông nếu có), không phải tổng diện tích ROI,
-  tổng số đếm tại kênh hoặc giá trị trên trục log.
-- Chỉ tạo ROI và fit tự động cho ứng viên có amplitude ≥ ngưỡng, đồng thời đạt
-  ngưỡng SNR. Nhập ngưỡng mới rồi bấm dò lại để áp dụng; ROI thủ công giữ nguyên.
-- Giữ riêng ngưỡng cho từng phổ; báo cáo TXT ghi ngưỡng, amplitude ước lượng và
-  đơn vị để truy nguyên điều kiện dò đỉnh.
-- Giữ toàn bộ chức năng v0.9.0: đa thức hiệu suất bậc 1–6, cảnh báo chất lượng,
-  đồ thị chuẩn năng lượng và hiệu suất với biên sai số.
+- Thêm nút **Giới thiệu** trên cửa sổ chính Windows/macOS, hiển thị phiên bản,
+  họ tên, đơn vị và email liên hệ.
+- Bổ sung tác giả và đơn vị trong metadata ứng dụng, cập nhật tài liệu liên hệ.
+- Giữ chức năng amplitude tối thiểu, đa thức hiệu suất bậc 1–6 và đồ thị chuẩn.
 
-Kiểm tra: 207 kiểm tra dữ liệu; smoke test giao diện gồm lọc amplitude, nhập dấu
-phẩy thập phân, lưu trạng thái từng phổ và các luồng phân tích hiện có.
+Lê Hoàng Minh
+Bộ môn Vật lý hạt nhân
+Khoa Vật lý-Vật lý Kỹ thuật
+Trường Đại học khoa học tự nhiên
+Đại học Quốc gia Thành phố Hồ Chí Minh
+email: hoangminh@hcmus.edu.vn

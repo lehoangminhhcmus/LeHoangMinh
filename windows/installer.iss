@@ -1,7 +1,9 @@
 [Setup]
 AppId={{0913EDC8-A1FD-47CD-BCC1-401887F22915}
 AppName=Gamma CNF Reader
-AppVersion=0.9.1
+AppVersion=0.9.2
+AppPublisher=Lê Hoàng Minh
+AppSupportURL=mailto:hoangminh@hcmus.edu.vn
 DefaultDirName={localappdata}\Programs\GammaCNFReader-CSharp
 DefaultGroupName=Gamma CNF Reader (C#)
 PrivilegesRequired=lowest

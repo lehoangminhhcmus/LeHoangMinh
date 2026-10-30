@@ -190,3 +190,19 @@ Gaussian ước lượng ≥500 trên nền liên tục và đủ SNR. Giá tr�
 Đây là chiều cao trên phổ đang dùng (sau trừ phông nếu có), không phải diện tích
 hay số đếm toàn phần tại kênh đỉnh. Ngưỡng giữ riêng theo phổ; ROI thủ công giữ
 nguyên. Báo cáo TXT ghi ngưỡng và amplitude ước lượng.
+
+## Thông tin tác giả
+
+Lê Hoàng Minh
+
+Bộ môn Vật lý hạt nhân
+
+Khoa Vật lý-Vật lý Kỹ thuật
+
+Trường Đại học khoa học tự nhiên
+
+Đại học Quốc gia Thành phố Hồ Chí Minh
+
+email: hoangminh@hcmus.edu.vn
+
+Trong phần mềm, bấm **Giới thiệu** để xem thông tin tác giả và phiên bản.

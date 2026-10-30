@@ -7,6 +7,7 @@
     <Button Content="Mở file…" Click="OpenClick"/>
     <Button x:Name="CsvButton" Content="Xuất CSV" Click="CsvClick" IsEnabled="False"/>
     <Button x:Name="PngButton" Content="Lưu PNG" Click="PngClick" IsEnabled="False"/>
+    <Button Content="Giới thiệu" Click="AboutClick"/>
     <Button Content="Toàn phổ" Click="ResetClick"/>
     <Button Content="Hiệu suất / Hoạt độ…" Click="EfficiencyClick"/>
     <CheckBox x:Name="EnergyCheck" Content="keV" IsEnabled="False" Checked="ModeChanged" Unchecked="ModeChanged"/>
