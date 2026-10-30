@@ -2,7 +2,7 @@
  <PropertyGroup>
   <OutputType>WinExe</OutputType><TargetFramework>net10.0</TargetFramework>
   <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-  <AssemblyName>GammaCNFReader</AssemblyName><Version>0.9.2</Version>
+  <AssemblyName>GammaCNFReader</AssemblyName><Version>0.10.0</Version>
     <Authors>Lê Hoàng Minh</Authors>
     <Company>Trường Đại học khoa học tự nhiên, Đại học Quốc gia Thành phố Hồ Chí Minh</Company>
   <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>

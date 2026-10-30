@@ -11,5 +11,5 @@ Trường Đại học khoa học tự nhiên
 Đại học Quốc gia Thành phố Hồ Chí Minh
 email: hoangminh@hcmus.edu.vn
 """;
-    public const string About = "Gamma CNF Reader v0.9.2\n\n" + Contact;
+    public const string About = "Gamma CNF Reader v0.10.0\n\n" + Contact;
 }

@@ -113,3 +113,11 @@ Trường Đại học khoa học tự nhiên
 email: hoangminh@hcmus.edu.vn
 
 Trong phần mềm, bấm **Giới thiệu** để xem thông tin tác giả và phiên bản.
+
+## Gợi ý đồng vị — v0.10.0
+
+Sau khi chọn/fit ROI, mở tab **Gợi ý đồng vị**, chọn thư mục thư viện NLB của
+Genie hoặc CSV. Xem đồng vị khả dĩ, ΔE và các ROI hỗ trợ; chỉnh dung sai theo
+detector. Đây là gợi ý theo năng lượng, chưa xác nhận đồng vị.
+
+[Hướng dẫn nạp thư viện và sử dụng](../docs/Goi_y_dong_vi_v0.10.0.md).

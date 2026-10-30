@@ -53,7 +53,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<RoiRow> rows=[];
     public MainWindow()
     {
-        InitializeComponent();RoiGrid.ItemsSource=rows;OpenedSpectra.ItemsSource=documents;
+        InitializeComponent();InitializeNuclides();RoiGrid.ItemsSource=rows;OpenedSpectra.ItemsSource=documents;
         AddHandler(DragDrop.DragOverEvent,OnDragOver);AddHandler(DragDrop.DropEvent,OnDrop);
         Plot.HoverChanged+=text=>Status.Text=text;
         Plot.RoiSelected+=(a,b)=>AddRoi(a,b);
@@ -174,6 +174,12 @@ public partial class MainWindow : Window
         PeakMinAmplitude.Text="0";
         await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
         if(ranges.Count!=1||first.AutomaticRois.Count!=1||!rows.Single().Result.Success||Math.Abs(rows.Single().Result.Centroid!.Value-300.3)>.1)throw new Exception("Automatic peak/ROI UI failed.");
+        RunNuclideSmokeChecks(directory);
+        AnalysisTabs.SelectedIndex=1;UpdateLayout();
+        using(var nuclideImage=new RenderTargetBitmap(new PixelSize(Math.Max(1,(int)Bounds.Width*2),Math.Max(1,(int)Bounds.Height*2)),new Vector(192,192)))
+        {nuclideImage.Render(this);nuclideImage.Save(Path.Combine(directory,"nuclide-suggestions.png"));}
+        AnalysisTabs.SelectedIndex=0;UpdateLayout();
+
         var automaticRange=ranges[0];
         pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
         if(!rows[0].Result.DetectionNote.Contains("changed since detection"))throw new Exception("Changing background did not mark automatic search provenance stale.");
@@ -270,11 +276,11 @@ public partial class MainWindow : Window
         if(documents.Count>0)Activate(documents[Math.Clamp(index,0,documents.Count-1)]);
         else
         {
-            rows.Clear();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.DetectedPeaks=[];Plot.Reset();
+            rows.Clear();RefreshNuclideSuggestions();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.DetectedPeaks=[];Plot.Reset();
             CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.9.2";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.10.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -286,7 +292,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.2";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.10.0";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
@@ -315,7 +321,7 @@ public partial class MainWindow : Window
             if(selected is not null)RoiGrid.SelectedItem=rows.FirstOrDefault(r=>r.Result.Range==selected);
         }
         finally{updatingRows=false;}
-        Plot.Rois=rows.Select(r=>r.Result).ToArray();Plot.DetectedPeaks=active!.AutomaticRois.Values.SelectMany(r=>r.Peaks).ToArray();Plot.InvalidateVisual();
+        Plot.Rois=rows.Select(r=>r.Result).ToArray();Plot.DetectedPeaks=active!.AutomaticRois.Values.SelectMany(r=>r.Peaks).ToArray();Plot.InvalidateVisual();RefreshNuclideSuggestions();
     }
     private PeakSearchOptions ReadPeakSearchOptions()=>new PeakSearchOptions(Number(PeakMinWidth.Text),Number(PeakMaxWidth.Text),Number(PeakThreshold.Text),Number(PeakPadding.Text),MinimumAmplitude:Number(PeakMinAmplitude.Text));
     private async void AutoPeakClick(object sender,RoutedEventArgs e)
@@ -437,7 +443,7 @@ public partial class MainWindow : Window
     });
     private void RemoveRoiClick(object sender,RoutedEventArgs e)
     { if(RoiGrid.SelectedItem is RoiRow row){ranges.Remove(row.Result.Range);active?.AutomaticRois.Remove(row.Result.Range);active?.AutomaticSearchRevisions.Remove(row.Result.Range);Refit();} }
-    private void ClearRoisClick(object sender,RoutedEventArgs e) { if(ReferenceEquals(active,peakDocument))peakCancellation?.Cancel();ranges.Clear();active?.AutomaticRois.Clear();active?.AutomaticSearchRevisions.Clear();rows.Clear();Plot.Rois=[];Plot.DetectedPeaks=[];Plot.InvalidateVisual(); }
+    private void ClearRoisClick(object sender,RoutedEventArgs e) { if(ReferenceEquals(active,peakDocument))peakCancellation?.Cancel();ranges.Clear();active?.AutomaticRois.Clear();active?.AutomaticSearchRevisions.Clear();rows.Clear();RefreshNuclideSuggestions();Plot.Rois=[];Plot.DetectedPeaks=[];Plot.InvalidateVisual(); }
     private async void ExportRoisClick(object sender,RoutedEventArgs e)=>await ExecuteAsync(async ()=>
     {
         if(session is null||rows.Count==0)throw new CnfException("Thêm ROI trước khi xuất.");
