@@ -68,3 +68,12 @@ dotnet run --project windows/GammaCnf.Checks -- "D:\Data\Test_spc.cnf"
 Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo bộ cài. Dùng `bash macos/build-macos.sh osx-arm64` trên Apple Silicon hoặc `osx-x64` trên Intel để tạo DMG. Workflow GitHub Actions xây dựng/kiểm tra Windows và cả hai Mac, chỉ phát hành khi tất cả đạt sau khi đẩy tag `v*`; xem trạng thái workflow để xác nhận build và phát hành thực sự thành công.
 
 [Chi tiết kỹ thuật và giới hạn](windows/README.md).
+
+## Ngưỡng amplitude tối thiểu — v0.9.1
+
+Trong phần dò đỉnh tự động, nhập **Amplitude tối thiểu (counts/kênh trên nền)**
+rồi bấm dò lại. Ví dụ `500` chỉ tạo ROI để fit tự động cho đỉnh có chiều cao
+Gaussian ước lượng ≥500 trên nền liên tục và đủ SNR. Giá trị `0` bỏ lọc chiều cao.
+Đây là chiều cao trên phổ đang dùng (sau trừ phông nếu có), không phải diện tích
+hay số đếm toàn phần tại kênh đỉnh. Ngưỡng giữ riêng theo phổ; ROI thủ công giữ
+nguyên. Báo cáo TXT ghi ngưỡng và amplitude ước lượng.

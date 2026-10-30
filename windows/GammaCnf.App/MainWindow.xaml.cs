@@ -116,7 +116,7 @@ public partial class MainWindow : Window
         var first=active??throw new Exception("No active spectrum in multi-spectrum smoke check.");
         var sharedBackground=session.Sample with{Counts=Enumerable.Repeat(100u,session.Values.Length).ToArray(),LiveTime=500};
         pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
-        double firstNet=session.Values[0];A0.Text="first unapplied draft";first.CalibrationDirty=true;
+        double firstNet=session.Values[0];A0.Text="first unapplied draft";PeakMinAmplitude.Text="125";first.CalibrationDirty=true;
         LogCheck.IsChecked=true;Plot.RestoreViewport((250,350));
         // New measurement with twice the live time and a different real time.
         byte[] other=(byte[])originalBytes!.Clone();
@@ -135,11 +135,11 @@ public partial class MainWindow : Window
         if(documents.Count!=2||ReferenceEquals(first,second)||ranges.Count!=0||session!.Background is not null)throw new Exception("New spectrum inherited another spectrum's analysis.");
         pendingBackground=sharedBackground;pendingBackgroundPath="shared-synthetic-background.cnf";ApplyBackground();
         if(session.Scale!=4||session.BackgroundTargetSeconds!=2000)throw new Exception("Automatic background time normalization not recomputed for second spectrum.");
-        AddRoi(390,410);A0.Text="second unapplied draft";
+        AddRoi(390,410);A0.Text="second unapplied draft";PeakMinAmplitude.Text="250";
         PreviousSpectrumClick(this,new RoutedEventArgs());
-        if(active!=first||session!.Scale!=2||session.Values[0]!=firstNet||A0.Text!="first unapplied draft"||!calibrationDirty||ranges.Count!=1||ranges[0].Start!=270||LogCheck.IsChecked!=true||Plot.Viewport!=(250d,350d))throw new Exception("First spectrum state was not restored.");
+        if(active!=first||session!.Scale!=2||session.Values[0]!=firstNet||A0.Text!="first unapplied draft"||PeakMinAmplitude.Text!="125"||!calibrationDirty||ranges.Count!=1||ranges[0].Start!=270||LogCheck.IsChecked!=true||Plot.Viewport!=(250d,350d))throw new Exception("First spectrum state was not restored.");
         NextSpectrumClick(this,new RoutedEventArgs());
-        if(active!=second||A0.Text!="second unapplied draft"||ranges.Count!=1||ranges[0].Start!=390||session!.Scale!=4)throw new Exception("Second spectrum state was not restored.");
+        if(active!=second||A0.Text!="second unapplied draft"||PeakMinAmplitude.Text!="250"||ranges.Count!=1||ranges[0].Start!=390||session!.Scale!=4)throw new Exception("Second spectrum state was not restored.");
         LoadFile(otherPath);if(documents.Count!=2)throw new Exception("Opening the same path created a duplicate document.");
         TimeBasisChoice.SelectedIndex=1;
         if(Math.Abs(session!.Scale-2200/sharedBackground.RealTime!.Value)>1e-9||session.TimeBasis!=BackgroundTimeBasis.RealTime)throw new Exception("Changing time basis did not automatically update background.");
@@ -148,6 +148,13 @@ public partial class MainWindow : Window
         CloseDocument(second);if(active!=first||documents.Count!=1||session!.Scale!=2)throw new Exception("Closing a spectrum lost the other document.");
         ClearBackgroundClick(this,new RoutedEventArgs());
         ClearRoisClick(this,new RoutedEventArgs());
+        PeakMinAmplitude.Text="1000000000";
+        await RunPeakSearchAsync(first,ReadPeakSearchOptions(),true);
+        if(ranges.Count!=0||rows.Count!=0)throw new Exception("Minimum amplitude did not prevent low automatic peak fit.");
+        PeakMinAmplitude.Text="100,5";
+        await RunPeakSearchAsync(first,ReadPeakSearchOptions(),true);
+        if(rows.Count!=1||!rows[0].Result.DetectionNote.Contains("amplitude>=100.5"))throw new Exception("Amplitude form parsing/provenance failed.");
+        PeakMinAmplitude.Text="0";
         await RunPeakSearchAsync(first,new PeakSearchOptions(),true);
         if(ranges.Count!=1||first.AutomaticRois.Count!=1||!rows.Single().Result.Success||Math.Abs(rows.Single().Result.Centroid!.Value-300.3)>.1)throw new Exception("Automatic peak/ROI UI failed.");
         var automaticRange=ranges[0];
@@ -198,7 +205,7 @@ public partial class MainWindow : Window
         if(active is null)return;var view=active.View;
         view.Coefficients=[A0.Text,A1.Text,A2.Text,A3.Text];view.Energy=EnergyCheck.IsChecked==true;view.Log=LogCheck.IsChecked==true;
         view.TimeBasis=TimeBasisChoice.SelectedIndex;view.AllowChannelOnly=AllowChannelOnly.IsChecked==true;
-        view.RoiStart=RoiStart.Text;view.RoiEnd=RoiEnd.Text;view.PeakMinimumFwhm=PeakMinWidth.Text;view.PeakMaximumFwhm=PeakMaxWidth.Text;view.PeakThreshold=PeakThreshold.Text;view.PeakPadding=PeakPadding.Text;view.ReplaceAutomatic=ReplaceAutomatic.IsChecked==true;view.Viewport=Plot.Viewport;view.SelectedRoi=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
+        view.RoiStart=RoiStart.Text;view.RoiEnd=RoiEnd.Text;view.PeakMinimumFwhm=PeakMinWidth.Text;view.PeakMaximumFwhm=PeakMaxWidth.Text;view.PeakMinimumAmplitude=PeakMinAmplitude.Text;view.PeakThreshold=PeakThreshold.Text;view.PeakPadding=PeakPadding.Text;view.ReplaceAutomatic=ReplaceAutomatic.IsChecked==true;view.Viewport=Plot.Viewport;view.SelectedRoi=(RoiGrid.SelectedItem as RoiRow)?.Result.Range;
     }
     private void Activate(OpenSpectrum document)
     {
@@ -209,7 +216,7 @@ public partial class MainWindow : Window
             var view=document.View;SetCoefficientFields();
             if(view.Coefficients.Length==4){A0.Text=view.Coefficients[0];A1.Text=view.Coefficients[1];A2.Text=view.Coefficients[2];A3.Text=view.Coefficients[3];}
             EnergyCheck.IsChecked=view.Energy;LogCheck.IsChecked=view.Log;TimeBasisChoice.SelectedIndex=view.TimeBasis;AllowChannelOnly.IsChecked=view.AllowChannelOnly;
-            RoiStart.Text=view.RoiStart;RoiEnd.Text=view.RoiEnd;PeakMinWidth.Text=view.PeakMinimumFwhm;PeakMaxWidth.Text=view.PeakMaximumFwhm;PeakThreshold.Text=view.PeakThreshold;PeakPadding.Text=view.PeakPadding;ReplaceAutomatic.IsChecked=view.ReplaceAutomatic;
+            RoiStart.Text=view.RoiStart;RoiEnd.Text=view.RoiEnd;PeakMinWidth.Text=view.PeakMinimumFwhm;PeakMaxWidth.Text=view.PeakMaximumFwhm;PeakMinAmplitude.Text=view.PeakMinimumAmplitude;PeakThreshold.Text=view.PeakThreshold;PeakPadding.Text=view.PeakPadding;ReplaceAutomatic.IsChecked=view.ReplaceAutomatic;
             PendingBackgroundLabel.Text=pendingBackgroundPath is null?"Chưa chọn file":Path.GetFileName(pendingBackgroundPath)+$" • live: {pendingBackground?.LiveTime?.ToString("N3")??"NA"} s • real: {pendingBackground?.RealTime?.ToString("N3")??"NA"} s";
             ScaleText.Text=session?.Background is null?"":F(session.Scale);
             CsvButton.IsEnabled=PngButton.IsEnabled=true;Refresh();
@@ -246,7 +253,7 @@ public partial class MainWindow : Window
             CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.9.0";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.9.1";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -258,7 +265,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.0";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.9.1";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
@@ -289,12 +296,13 @@ public partial class MainWindow : Window
         finally{updatingRows=false;}
         Plot.Rois=rows.Select(r=>r.Result).ToArray();Plot.DetectedPeaks=active!.AutomaticRois.Values.SelectMany(r=>r.Peaks).ToArray();Plot.InvalidateVisual();
     }
+    private PeakSearchOptions ReadPeakSearchOptions()=>new PeakSearchOptions(Number(PeakMinWidth.Text),Number(PeakMaxWidth.Text),Number(PeakThreshold.Text),Number(PeakPadding.Text),MinimumAmplitude:Number(PeakMinAmplitude.Text));
     private async void AutoPeakClick(object sender,RoutedEventArgs e)
     {
         try
         {
             if(active is null)throw new CnfException("Mở phổ trước khi dò đỉnh.");
-            var options=new PeakSearchOptions(Number(PeakMinWidth.Text),Number(PeakMaxWidth.Text),Number(PeakThreshold.Text),Number(PeakPadding.Text));options.Validate();
+            var options=ReadPeakSearchOptions();options.Validate();
             await RunPeakSearchAsync(active,options,ReplaceAutomatic.IsChecked==true);
         }
         catch(Exception error)when(error is CnfException or ArgumentException or OverflowException){Error(error);}
@@ -315,7 +323,7 @@ public partial class MainWindow : Window
             var merge=ApplyAutomaticRois(document,result,replace);
             if(ReferenceEquals(active,document))Refit();
             Status.Text=$"{Path.GetFileName(document.Path)}: {result.Peaks.Count} ứng viên, thêm {merge.Accepted.Count} ROI; bỏ {merge.SkippedOverlap} ROI chồng vùng đang có, {merge.SkippedCapacity} vì đủ 100 ROI."+
-                (result.Truncated?" Đã chạm giới hạn 100 ứng viên.":"")+" Kiểm tra nhóm đỉnh, nền và giới hạn ROI trước khi định lượng.";
+                (result.Truncated?" Đã chạm giới hạn 100 ứng viên.":"")+$" Amplitude tối thiểu: {options.MinimumAmplitude:G6} counts/kênh trên nền. Kiểm tra nhóm đỉnh, nền và giới hạn ROI trước khi định lượng.";
         }
         catch(OperationCanceledException){Status.Text="Đã hủy dò đỉnh; ROI trước đó được giữ nguyên.";}
         finally{peakCancellation=null;peakDocument=null;PeakSearchButton.IsEnabled=true;CancelPeakButton.IsEnabled=false;}

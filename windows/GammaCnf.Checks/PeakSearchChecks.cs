@@ -35,6 +35,24 @@ internal static class PeakSearchChecks
         merge=PeakSearch.Merge(found.Rois,[new RoiRange(0,10)],1);check(merge.Accepted.Count==0&&merge.SkippedCapacity>0,"Automatic ROI respects document capacity");
         data=Signal((180,2,800),(480,5,500),(800,10,300));found=PeakSearch.Find(data,data,options with{MaximumPeaks=1});
         check(found.Peaks.Count==1&&found.Truncated,"Report automatic search truncation at peak limit");
+        var heights=Signal((200,4,1000),(700,4,200));
+        var heightOptions=options with{MinimumFwhm=9.41928018,MaximumFwhm=9.41928018};
+        var unfiltered=PeakSearch.Find(heights,heights,heightOptions);
+        check(unfiltered.Peaks.Count==2,"Default amplitude zero preserves both detectable peaks");
+        var filtered=PeakSearch.Find(heights,heights,heightOptions with{MinimumAmplitude=500});
+        check(filtered.Peaks.Count==1&&Math.Abs(filtered.Peaks[0].Channel-200)<2&&filtered.Rois.Count==1,"Minimum amplitude removes low peaks before automatic ROI fit");
+        check(Math.Abs(filtered.Peaks[0].Amplitude-1000)<.01,"Amplitude estimates Gaussian height above sloping continuum in counts per channel");
+        double boundary=unfiltered.Peaks.Min(p=>p.Amplitude);
+        check(PeakSearch.Find(heights,heights,heightOptions with{MinimumAmplitude=boundary}).Peaks.Count==2,"Amplitude exactly at threshold is included");
+        check(PeakSearch.Find(heights,heights,heightOptions with{MinimumAmplitude=2000}).Rois.Count==0,"No automatic ROI when all amplitudes are below threshold");
+        var raised=heights.Select(v=>v+10000).ToArray();
+        check(PeakSearch.Find(raised,heights,heightOptions with{MinimumAmplitude=500}).Peaks.Count==1,"High continuum level does not count toward peak amplitude");
+        var negative=heights.Select(v=>v-2000).ToArray();
+        check(PeakSearch.Find(negative,heights,heightOptions with{MinimumAmplitude=500}).Peaks.Count==1,"Amplitude threshold works on negative background-subtracted continuum");
+        check(filtered.Rois[0].Note.Contains("amplitude>=500")&&filtered.Rois[0].Note.Contains("counts/channel"),"Automatic ROI provenance records amplitude threshold and units");
+        Reject(()=>PeakSearch.Find(flat,flat,options with{MinimumAmplitude=-1}),"Reject negative amplitude threshold");
+        Reject(()=>PeakSearch.Find(flat,flat,options with{MinimumAmplitude=double.NaN}),"Reject NaN amplitude threshold");
+        Reject(()=>PeakSearch.Find(flat,flat,options with{MinimumAmplitude=double.PositiveInfinity}),"Reject infinite amplitude threshold");
         var random=new Random(8347);var noise=Enumerable.Range(0,2048).Select(_=>100+Math.Sqrt(100)*Math.Sqrt(-2*Math.Log(1-random.NextDouble()))*Math.Cos(2*Math.PI*random.NextDouble())).ToArray();
         check(PeakSearch.Find(noise,Enumerable.Repeat(100d,2048).ToArray(),options).Peaks.Count==0,"Seeded counting-noise continuum does not trigger default threshold");
         for(int seed=1;seed<=4;seed++)

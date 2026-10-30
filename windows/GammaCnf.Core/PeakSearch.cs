@@ -1,23 +1,24 @@
 using System.Globalization;
 namespace GammaCnf.Core;
 
-public sealed record PeakSearchOptions(double MinimumFwhm=3,double MaximumFwhm=40,double Threshold=5,double RoiSigma=3.5,int MaximumPeaks=100)
+public sealed record PeakSearchOptions(double MinimumFwhm=3,double MaximumFwhm=40,double Threshold=5,double RoiSigma=3.5,int MaximumPeaks=100,double MinimumAmplitude=0)
 {
     public void Validate()
     {
         if(!double.IsFinite(MinimumFwhm)||!double.IsFinite(MaximumFwhm)||MinimumFwhm<2||MaximumFwhm>256||MaximumFwhm<MinimumFwhm)
             throw new CnfException("Khoảng FWHM dò đỉnh phải từ 2 đến 256 kênh, min ≤ max.");
         if(!double.IsFinite(Threshold)||Threshold<3||Threshold>30)throw new CnfException("Ngưỡng SNR bộ lọc phải từ 3 đến 30 (khuyến nghị 5).");
+        Guard.Nonnegative(MinimumAmplitude,"Amplitude tối thiểu (counts/kênh trên nền liên tục)");
         if(!double.IsFinite(RoiSigma)||RoiSigma<2.5||RoiSigma>6||MaximumPeaks<1||MaximumPeaks>100)
             throw new CnfException("Biên ROI cần 2,5–6 sigma; tối đa 1–100 đỉnh.");
     }
-    public string Description=>FormattableString.Invariant($"multiscale Gaussian/linear-continuum filter; FWHM={MinimumFwhm:G6}..{MaximumFwhm:G6} ch; SNR>={Threshold:G6}; ROI={RoiSigma:G6} sigma");
+    public string Description=>FormattableString.Invariant($"multiscale Gaussian/linear-continuum filter; FWHM={MinimumFwhm:G6}..{MaximumFwhm:G6} ch; SNR>={Threshold:G6}; amplitude>={MinimumAmplitude:G6} counts/channel above local continuum; ROI={RoiSigma:G6} sigma");
 }
-public sealed record PeakCandidate(int Channel,double FilterSnr,double FwhmChannels,bool Clipped);
+public sealed record PeakCandidate(int Channel,double FilterSnr,double FwhmChannels,bool Clipped,double Amplitude=0);
 public sealed record DetectedRoi(RoiRange Range,IReadOnlyList<PeakCandidate> Peaks,PeakSearchOptions Options)
 {
     public bool IsGroup=>Peaks.Count>1;
-    public string Note=>Options.Description+"; candidates="+string.Join("; ",Peaks.Select(p=>FormattableString.Invariant($"ch {p.Channel}, filter SNR {p.FilterSnr:G5}, estimated FWHM {p.FwhmChannels:G5}")))+
+    public string Note=>Options.Description+"; candidates="+string.Join("; ",Peaks.Select(p=>FormattableString.Invariant($"ch {p.Channel}, filter SNR {p.FilterSnr:G5}, estimated FWHM {p.FwhmChannels:G5}, amplitude {p.Amplitude:G6} counts/channel above continuum")))+
         (IsGroup?"; overlapping automatic ROI grouped: single-Gaussian fit disabled":"")+(Peaks.Any(p=>p.Clipped)?"; ROI/search support touches spectrum edge":"");
 }
 public sealed record PeakSearchResult(IReadOnlyList<PeakCandidate> Peaks,IReadOnlyList<DetectedRoi> Rois,int SuppressedCandidates,bool Truncated);
@@ -44,7 +45,7 @@ public static class PeakSearch
             cancellation.ThrowIfCancellationRequested();
             double sigma=width/FwhmFactor;int radius=Math.Max(4,(int)Math.Ceiling(4*sigma));
             var gaussian=Enumerable.Range(-radius,2*radius+1).Select(t=>Math.Exp(-.5*t*t/(sigma*sigma))).ToArray();
-            var z=new double[n];
+            var z=new double[n];var amplitudes=new double[n];
             for(int center=0;center<n;center++)
             {
                 if((center&127)==0)cancellation.ThrowIfCancellationRequested();
@@ -55,12 +56,13 @@ public static class PeakSearch
                 double det=count*sxx-sx*sx;
                 if(det<=0)continue;
                 double base0=(sg*sxx-sxg*sx)/det,base1=(count*sxg-sx*sg)/det;
-                double signal=0,variance=0;
+                double signal=0,variance=0,norm=0;
                 for(int t=a;t<=b;t++)
                 {
                     double weight=gaussian[t+radius]-base0-base1*t;
-                    signal+=weight*values[center+t];variance+=weight*weight*Math.Max(1,variances[center+t]);
+                    norm+=weight*weight;signal+=weight*values[center+t];variance+=weight*weight*Math.Max(1,variances[center+t]);
                 }
+                amplitudes[center]=norm>0?signal/norm:0;
                 z[center]=variance>0?signal/Math.Sqrt(variance):0;
             }
             for(int i=0;i<n;i++)
@@ -73,7 +75,7 @@ public static class PeakSearch
                     if(distance<=Math.Max(2,width/2)&&distance<nearest){anchor=candidate;nearest=distance;}
                 }
                 if(anchor<0)continue;
-                var peak=new PeakCandidate(anchor,z[i],width,anchor-radius<0||anchor+radius>=n);
+                var peak=new PeakCandidate(anchor,z[i],width,anchor-radius<0||anchor+radius>=n,amplitudes[i]);
                 if(!best.TryGetValue(anchor,out var previous)||peak.FilterSnr>previous.FilterSnr)best[anchor]=peak;
             }
         }
@@ -81,6 +83,8 @@ public static class PeakSearch
         foreach(var candidate in best.Values.OrderByDescending(p=>p.FilterSnr).ThenBy(p=>p.Channel))
         {
             cancellation.ThrowIfCancellationRequested();
+            // Apply the height cutoff to the winning scale before ROI creation or fitting.
+            if(candidate.Amplitude<options.MinimumAmplitude)continue;
             var estimated=Estimate(candidate,smooth,options);
             if(selected.Any(p=>Math.Abs(p.Channel-estimated.Channel)<Math.Max(2,.65*Math.Min(p.FwhmChannels,estimated.FwhmChannels)))){suppressed++;continue;}
             selected.Add(estimated);

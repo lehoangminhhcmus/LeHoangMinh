@@ -57,6 +57,8 @@
       <TextBlock Text="Dò đỉnh và ROI tự động" FontWeight="SemiBold" FontSize="15"/>
       <TextBlock Text="FWHM nhỏ nhất / lớn nhất (kênh)" Margin="0,6,0,4"/>
       <UniformGrid Columns="2"><TextBox x:Name="PeakMinWidth" Text="3" Margin="0,0,5,6"/><TextBox x:Name="PeakMaxWidth" Text="40" Margin="5,0,0,6"/></UniformGrid>
+      <TextBlock Text="Amplitude tối thiểu (counts/kênh trên nền)"/><TextBox x:Name="PeakMinAmplitude" Text="0" Margin="0,4,0,6"/>
+      <TextBlock Text="Chiều cao Gaussian ước lượng trên nền liên tục của phổ đang dùng (sau trừ phông nếu có). 0: không lọc theo chiều cao. Áp dụng khi bấm dò đỉnh tự động." TextWrapping="Wrap" Margin="0,0,0,6"/>
       <TextBlock Text="Ngưỡng SNR bộ lọc (khuyến nghị 5)"/><TextBox x:Name="PeakThreshold" Text="5" Margin="0,4,0,6"/>
       <TextBlock Text="Nửa rộng ROI theo sigma ước lượng"/><TextBox x:Name="PeakPadding" Text="3.5" Margin="0,4,0,6"/>
       <CheckBox x:Name="ReplaceAutomatic" IsChecked="True" Margin="0,5,0,8"><TextBlock Text="Thay ROI tự động cũ; luôn giữ ROI thủ công" TextWrapping="Wrap"/></CheckBox>

@@ -17,6 +17,7 @@ public sealed class SpectrumViewState
     public string PeakMinimumFwhm {get;set;}="3";
     public string PeakMaximumFwhm {get;set;}="40";
     public string PeakThreshold {get;set;}="5";
+    public string PeakMinimumAmplitude {get;set;}="0";
     public string PeakPadding {get;set;}="3.5";
     public bool ReplaceAutomatic {get;set;}=true;
 }

@@ -181,3 +181,12 @@ CI Windows xây dựng app, kiểm tra cú pháp script cài, chạy kiểm tra 
 Cài thêm Inno Setup 6 và chạy `windows\build-windows.bat` để tạo portable exe và Setup.exe. GitHub Actions kiểm tra khi push main; tag `v*` sẽ phát hành bản Latest nếu các kiểm tra đạt.
 
 Phạm vi CNF: một khối SPEC, 1–32.768 kênh uint32; thời gian giữ theo file, không tự suy diễn múi giờ. Tham khảo cấu trúc CAM/CNF: [SpecUtils CAMIO](https://github.com/sandialabs/SpecUtils/blob/master/src/CAMIO.cpp).
+
+## Ngưỡng amplitude tối thiểu — v0.9.1
+
+Trong phần dò đỉnh tự động, nhập **Amplitude tối thiểu (counts/kênh trên nền)**
+rồi bấm dò lại. Ví dụ `500` chỉ tạo ROI để fit tự động cho đỉnh có chiều cao
+Gaussian ước lượng ≥500 trên nền liên tục và đủ SNR. Giá trị `0` bỏ lọc chiều cao.
+Đây là chiều cao trên phổ đang dùng (sau trừ phông nếu có), không phải diện tích
+hay số đếm toàn phần tại kênh đỉnh. Ngưỡng giữ riêng theo phổ; ROI thủ công giữ
+nguyên. Báo cáo TXT ghi ngưỡng và amplitude ước lượng.

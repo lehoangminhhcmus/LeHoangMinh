@@ -88,3 +88,12 @@ dotnet run --project macos/GammaCnf.UiChecks -- /tmp/smoke.cnf /tmp/ui-evidence
 Giao diện Avalonia được tách riêng để giữ bản Windows WPF ổn định. Mọi thay đổi
 phương pháp tính phải thực hiện trong GammaCnf.Core và có kiểm tra dùng chung;
 các thay đổi UI tương đương cần cập nhật cả hai ứng dụng.
+
+## Ngưỡng amplitude tối thiểu — v0.9.1
+
+Trong phần dò đỉnh tự động, nhập **Amplitude tối thiểu (counts/kênh trên nền)**
+rồi bấm dò lại. Ví dụ `500` chỉ tạo ROI để fit tự động cho đỉnh có chiều cao
+Gaussian ước lượng ≥500 trên nền liên tục và đủ SNR. Giá trị `0` bỏ lọc chiều cao.
+Đây là chiều cao trên phổ đang dùng (sau trừ phông nếu có), không phải diện tích
+hay số đếm toàn phần tại kênh đỉnh. Ngưỡng giữ riêng theo phổ; ROI thủ công giữ
+nguyên. Báo cáo TXT ghi ngưỡng và amplitude ước lượng.

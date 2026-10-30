@@ -67,7 +67,7 @@ public static class EfficiencyReports
     private static string Clean(string? s)=>(s??"").Replace('\t',' ').Replace('\r',' ').Replace('\n',' ');
     private static void ProfileHeader(StreamWriter w,EfficiencyProfile p)
     {
-        w.WriteLine("Gamma CNF Reader 0.9.0 — full-energy peak efficiency");
+        w.WriteLine("Gamma CNF Reader 0.9.1 — full-energy peak efficiency");
         w.WriteLine("Profile\t"+Clean(p.Definition.Name));w.WriteLine("Created\t"+p.Definition.CreatedAt.ToString("O"));
         var g=p.Definition.Geometry;
         w.WriteLine($"Detector\t{Clean(g.Detector)}\nGeometry\t{Clean(g.Configuration)}\nDistance_mm\t{(g.DistanceSpecified?F(g.DistanceMm):"NA")}\nConfiguration_notes\t{Clean(g.Notes)}");
