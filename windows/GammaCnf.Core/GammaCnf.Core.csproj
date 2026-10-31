@@ -4,4 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Libraries/Stdlib.nlb" LogicalName="GammaCnf.Core.Libraries.Stdlib.nlb" />
+  </ItemGroup>
 </Project>

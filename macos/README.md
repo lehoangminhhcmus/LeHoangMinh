@@ -121,3 +121,10 @@ Genie hoặc CSV. Xem đồng vị khả dĩ, ΔE và các ROI hỗ trợ; chỉ
 detector. Đây là gợi ý theo năng lượng, chưa xác nhận đồng vị.
 
 [Hướng dẫn nạp thư viện và sử dụng](../docs/Goi_y_dong_vi_v0.10.0.md).
+
+## Thư viện đồng vị tích hợp — v0.10.2
+
+Kèm sẵn Stdlib (109 đồng vị, 511 vạch), tự nạp lần đầu. Mở CNF có chuẩn năng lượng,
+fit ROI/dò đỉnh rồi xem tab **Gợi ý đồng vị**. Nút **Thư viện tích hợp** chuyển về
+Stdlib; vẫn có thể chọn và nhớ thư mục NLB/CSV riêng. Thư viện được nhúng vào app,
+dùng ngoại tuyến. Xem [hướng dẫn](../docs/Goi_y_dong_vi_v0.10.0.md).

@@ -9,8 +9,11 @@ public static class NlbLibraryReader
     public static IReadOnlyList<NuclideLine> Read(string path)
     {
         if(new FileInfo(path).Length>32*1024*1024)throw new CnfException("NLB vượt 32 MB.");
-        byte[] b=File.ReadAllBytes(path);
-        CnfException Invalid()=>new($"{Path.GetFileName(path)}: NLB không hợp lệ hoặc biến thể chưa hỗ trợ; chưa nạp để tránh gán sai đồng vị.");
+        return Read(File.ReadAllBytes(path),Path.GetFileName(path));
+    }
+    internal static IReadOnlyList<NuclideLine> Read(byte[] b,string fileName)
+    {
+        CnfException Invalid()=>new($"{fileName}: NLB không hợp lệ hoặc biến thể chưa hỗ trợ; chưa nạp để tránh gán sai đồng vị.");
         ushort U16(int o){if(o<0||o>b.Length-2)throw Invalid();return BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o,2));}
         uint U32(int o){if(o<0||o>b.Length-4)throw Invalid();return BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o,4));}
         int Int(uint v){if(v>int.MaxValue)throw Invalid();return (int)v;}
@@ -79,7 +82,7 @@ public static class NlbLibraryReader
                 var line=emissions[index-1];
                 // Some NLB records have yields >100 (e.g. annihilation/group yields).
                 // Keep their energy for matching, without treating that yield as a probability.
-                output.Add(new(name,line.Energy,line.Intensity<=100?line.Intensity:null,"NLB: "+Path.GetFileName(path)+" (nguồn dữ liệu hạt nhân chưa xác minh)",Path.GetFileName(path)));
+                output.Add(new(name,line.Energy,line.Intensity<=100?line.Intensity:null,"NLB: "+fileName+" (nguồn dữ liệu hạt nhân chưa xác minh)",fileName));
                 if(output.Count>200000)throw Invalid();
             }
             cursor+=length;

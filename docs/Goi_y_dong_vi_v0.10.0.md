@@ -3,6 +3,22 @@
 Áp dụng cho Windows/macOS. Kết quả là danh sách **đồng vị khả dĩ theo năng lượng**,
 không phải nhận dạng chắc chắn, độ tin cậy thống kê hoặc kết quả hoạt độ.
 
+## Thư viện tích hợp — v0.10.2
+
+Windows/macOS kèm nguyên file `Stdlib.nlb` do người dùng cung cấp, gồm 109 đồng vị
+và 511 vạch sau khi nạp. File được nhúng vào phần dùng chung của ứng dụng nên có
+sẵn trong cả bộ cài, bản portable và gói macOS; không cần Internet hay quyền ghi
+vào thư mục cài đặt để đọc thư viện.
+
+Khi mở lần đầu, Stdlib tự nạp. Mở CNF có chuẩn năng lượng, fit ROI hoặc dò đỉnh,
+rồi xem tab **Gợi ý đồng vị**. Nhấp ứng viên để hiện vạch đối chiếu xanh lá như
+v0.10.1. Bấm **Thư viện tích hợp** để chuyển về Stdlib sau khi dùng thư viện riêng;
+lựa chọn được nhớ cho lần sau. Nếu thư mục riêng đã lưu bị xóa hoặc không nạp
+được, ứng dụng thông báo và dùng Stdlib cho phiên hiện tại, không xóa thiết lập cũ.
+
+Dữ liệu gốc được giữ nguyên; không tự sửa xác suất phát hoặc năng lượng. Nguồn
+hạt nhân/ngày cập nhật NLB vẫn chưa xác minh; cần đối chiếu trước khi kết luận.
+
 ## Cách dùng với thư viện NLB của Genie
 
 1. Tạo một thư mục trên máy, chẳng hạn `D:\GammaLibraries` hoặc
@@ -19,8 +35,8 @@ không phải nhận dạng chắc chắn, độ tin cậy thống kê hoặc k�
 
 Đường dẫn thư viện được nhớ cho lần mở chương trình tiếp theo. Nếu không lưu
 được thiết lập, thư viện vẫn dùng được trong phiên hiện tại và có thông báo.
-Chương trình không kèm sẵn dữ liệu NLB của người dùng; tự chọn thư viện có nguồn
-phù hợp. NLB không hỗ trợ hoặc lỗi cấu trúc sẽ báo lỗi, không đoán liên kết vạch.
+Từ v0.10.2 chương trình kèm Stdlib; có thể chọn thêm thư viện riêng có nguồn
+phù hợp bằng cách thay thư viện đang dùng. NLB không hỗ trợ hoặc lỗi cấu trúc sẽ báo lỗi, không đoán liên kết vạch.
 
 ## Dung sai và thứ tự ứng viên
 

@@ -21,6 +21,14 @@ public sealed class NuclideLibrary
     public const string CsvHeader="Nuclide,EnergyKeV,IntensityPercent,Reference";
     public const string Template=CsvHeader+"\n";
     private NuclideLibrary(string directory,List<NuclideLine> lines,string[] warnings){DirectoryPath=directory;Lines=lines;Warnings=warnings;}
+    public const string BundledLibraryPath="Tích hợp: Stdlib.nlb";
+    public static NuclideLibrary LoadBundled()
+    {
+        using var resource=typeof(NuclideLibrary).Assembly.GetManifestResourceStream("GammaCnf.Core.Libraries.Stdlib.nlb")
+            ??throw new CnfException("Không tìm thấy thư viện tích hợp Stdlib.nlb.");
+        using var buffer=new MemoryStream();resource.CopyTo(buffer);
+        return Create(BundledLibraryPath,NlbLibraryReader.Read(buffer.ToArray(),"Stdlib.nlb").ToList(),true);
+    }
     public static NuclideLibrary LoadDirectory(string directory)
     {
         if(!Directory.Exists(directory))throw new CnfException("Thư mục thư viện chưa tồn tại. Chọn thư mục chứa CSV dữ liệu đồng vị.");
@@ -56,13 +64,17 @@ public sealed class NuclideLibrary
             catch(MalformedLineException ex){throw new CnfException($"CSV lỗi: {Path.GetFileName(path)}, dòng {parser.ErrorLineNumber}: {ex.Message}");}
         }
         if(lines.Count==0)throw new CnfException("CSV chỉ có tiêu đề, chưa có dữ liệu đồng vị. Điền dữ liệu có nguồn tham chiếu rồi nạp lại.");
+        return Create(Path.GetFullPath(directory),lines,files.Any(p=>string.Equals(Path.GetExtension(p),".nlb",StringComparison.OrdinalIgnoreCase)));
+    }
+    private static NuclideLibrary Create(string directory,List<NuclideLine> lines,bool hasNlb)
+    {
         var warnings=new List<string>();
-        if(files.Any(p=>string.Equals(Path.GetExtension(p),".nlb",StringComparison.OrdinalIgnoreCase)))warnings.Add("NLB: chưa xác minh nguồn dữ liệu hạt nhân/ngày cập nhật. Yield >100 được giữ năng lượng nhưng không dùng làm xác suất phát.");
+        if(hasNlb)warnings.Add("NLB: chưa xác minh nguồn dữ liệu hạt nhân/ngày cập nhật. Yield >100 được giữ năng lượng nhưng không dùng làm xác suất phát.");
         if(lines.Any(l=>string.IsNullOrWhiteSpace(l.Reference)))warnings.Add("Có vạch chưa ghi nguồn tham chiếu.");
         if(lines.Any(l=>l.IntensityPercent is null))warnings.Add("Có vạch chưa cung cấp xác suất phát.");
         int count=lines.Count;lines=lines.DistinctBy(l=>(l.Nuclide.ToUpperInvariant(),l.EnergyKeV,l.IntensityPercent,l.Reference)).OrderBy(l=>l.EnergyKeV).ToList();
         if(lines.Count<count)warnings.Add($"Đã gộp {count-lines.Count} vạch trùng dữ liệu.");
-        return new(Path.GetFullPath(directory),lines,warnings.ToArray());
+        return new(directory,lines,warnings.ToArray());
     }
     public IReadOnlyList<NuclideSuggestion> Suggest(IReadOnlyList<RoiResult> rois,double minimumKeV=2,double fwhmFactor=.5)
     {

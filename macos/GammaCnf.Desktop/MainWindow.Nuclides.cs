@@ -11,18 +11,34 @@ public partial class MainWindow
     private static string LibrarySettings=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GammaCNFReader","nuclide-library-path.txt");
     private void InitializeNuclides()
     {
-        string defaultDirectory=Path.Combine(Path.GetDirectoryName(LibrarySettings)!,"nuclide-library");
-        LibraryFolder.Text=defaultDirectory;
+        LibraryFolder.Text=NuclideLibrary.BundledLibraryPath;
         try
         {
-            if(File.Exists(LibrarySettings)&&new FileInfo(LibrarySettings).Length<4096)LibraryFolder.Text=File.ReadAllText(LibrarySettings).Trim();
-            if(Directory.Exists(LibraryFolder.Text)&&Directory.EnumerateFiles(LibraryFolder.Text).Any(p=>Path.GetExtension(p).Equals(".nlb",StringComparison.OrdinalIgnoreCase)||Path.GetExtension(p).Equals(".csv",StringComparison.OrdinalIgnoreCase)))LoadNuclideLibrary(false);
+            if(File.Exists(LibrarySettings)&&new FileInfo(LibrarySettings).Length<4096)
+            {
+                string saved=File.ReadAllText(LibrarySettings).Trim();
+                if(saved.Length>0)LibraryFolder.Text=saved;
+            }
         }
-        catch(Exception error)when(error is IOException or UnauthorizedAccessException or CnfException or ArgumentException){libraryMessage="Chưa nạp thư viện: "+error.Message;}
-        RefreshNuclideSuggestions();
+        catch(Exception error)when(error is IOException or UnauthorizedAccessException or ArgumentException)
+        {libraryMessage="Không đọc được thiết lập thư viện: "+error.Message;}
+        LoadNuclideLibrary(false);
+        if(nuclideLibrary is null&&LibraryFolder.Text!=NuclideLibrary.BundledLibraryPath)
+        {
+            string failure=libraryMessage;
+            LibraryFolder.Text=NuclideLibrary.BundledLibraryPath;LoadNuclideLibrary(false);
+            libraryMessage=failure+" Đã chuyển sang thư viện tích hợp. "+libraryMessage;
+            RefreshNuclideSuggestions();
+        }
     }
     private void RunNuclideSmokeChecks(string directory)
     {
+        if(nuclideLibrary is null)throw new Exception("Startup did not initialize a nuclide library.");
+        if(!File.Exists(LibrarySettings)&&LibraryFolder.Text!=NuclideLibrary.BundledLibraryPath)
+            throw new Exception("First startup did not select the bundled library.");
+        LibraryFolder.Text=NuclideLibrary.BundledLibraryPath;LoadNuclideLibrary(false);
+        if(nuclideLibrary is null||!nuclideLibrary.Lines.Any(l=>l.Nuclide=="CS-137"&&Math.Abs(l.EnergyKeV-661.657)<.1))
+            throw new Exception("Bundled Stdlib library did not load in UI.");
         string folder=Path.Combine(directory,"synthetic-nuclide-library");Directory.CreateDirectory(folder);
         double energy=rows.Single().Result.EnergyKeV??throw new Exception("Missing energy for nuclide UI check.");
         string E(double value)=>value.ToString("G17",System.Globalization.CultureInfo.InvariantCulture);
@@ -46,7 +62,7 @@ public partial class MainWindow
         if(NuclideGrid.ItemsSource is not null||nuclideLibrary is not null||Plot.ConfirmationMarkers.Count!=0)throw new Exception("Failed library load retained stale suggestions.");
         LibraryFolder.Text=folder;LoadNuclideLibrary(false);
         NuclideGrid.SelectedItem=((IReadOnlyList<NuclideSuggestion>)NuclideGrid.ItemsSource!)[0];
-        File.WriteAllText(Path.Combine(directory,"nuclide-ui-success.txt"),"PASS: load library directory, display candidate for calibrated ROI, reject missing directory and clear stale matches");
+        File.WriteAllText(Path.Combine(directory,"nuclide-ui-success.txt"),"PASS: bundled Stdlib, load library directory, display candidate for calibrated ROI, reject missing directory and clear stale matches");
     }
     private void LoadNuclideLibrary(bool remember=true)
     {
@@ -54,7 +70,8 @@ public partial class MainWindow
         nuclideLibrary=null;ClearConfirmation();NuclideGrid.ItemsSource=null;
         try
         {
-            var loaded=NuclideLibrary.LoadDirectory((LibraryFolder.Text??"").Trim());
+            string selected=(LibraryFolder.Text??"").Trim();
+            var loaded=selected==NuclideLibrary.BundledLibraryPath?NuclideLibrary.LoadBundled():NuclideLibrary.LoadDirectory(selected);
             nuclideLibrary=loaded;LibraryFolder.Text=loaded.DirectoryPath;
             libraryMessage=$"{loaded.Lines.Count:N0} vạch đã nạp. "+string.Join(" ",loaded.Warnings);
             if(remember)
@@ -85,6 +102,10 @@ public partial class MainWindow
     private void ClearConfirmationClick(object sender,RoutedEventArgs e)
     {
         NuclideGrid.SelectedItem=null;ClearConfirmation();
+    }
+    private void UseBundledLibraryClick(object sender,RoutedEventArgs e)
+    {
+        LibraryFolder.Text=NuclideLibrary.BundledLibraryPath;LoadNuclideLibrary();
     }
     private void LoadLibraryClick(object sender,RoutedEventArgs e)=>LoadNuclideLibrary();
     private void RefreshNuclidesClick(object sender,RoutedEventArgs e)=>RefreshNuclideSuggestions();

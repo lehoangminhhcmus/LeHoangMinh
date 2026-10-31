@@ -9,6 +9,13 @@ internal static class NuclideChecks
         RoiResult Roi(double energy,bool success=true,double fwhm=2)=>new(new((int)energy,(int)energy+10),success,"test",1000,1000,10,EnergyKeV:energy,FwhmKeV:fwhm);
         try
         {
+            var bundled=NuclideLibrary.LoadBundled();
+            check(bundled.Lines.Count==511&&bundled.Lines.Select(l=>l.Nuclide).Distinct().Count()==109,"Bundled Stdlib contains all 511 lines and 109 nuclides");
+            check(bundled.DirectoryPath==NuclideLibrary.BundledLibraryPath&&bundled.Lines.All(l=>l.FileName=="Stdlib.nlb"),"Bundled library loads from assembly with original source filename");
+            foreach(var pair in new[]{("CO-60",1173.228),("CO-60",1332.492),("CS-137",661.657),("AM-241",59.54),("NA-22",1274.5),("K-40",1460.8)})
+                check(bundled.Suggest([Roi(pair.Item2)],.3,0).Any(l=>l.Nuclide==pair.Item1),"Bundled Stdlib known emission: "+pair.Item1+" "+pair.Item2);
+            check(bundled.Suggest([Roi(1173.228),Roi(1332.492)],.3,0).Count(l=>l.Nuclide=="CO-60"&&l.SupportingRois==1)==2,"Bundled Co-60 uses two independent supporting peaks");
+            check(bundled.Warnings.Any(w=>w.Contains("chưa xác minh")),"Bundled NLB retains unverified nuclear-data provenance warning");
             string path=Path.Combine(directory,"test.csv");
             File.WriteAllText(path,NuclideLibrary.CsvHeader+"\nCs-137,661.657,85.1,\"Synthetic, example only\"\nCo-60,1173.228,99.85,TEST\nCo-60,1332.492,99.98,TEST\nOther,1173.21,,TEST\n");
             var lib=NuclideLibrary.LoadDirectory(directory);var results=lib.Suggest([Roi(661.7),Roi(1173.25),Roi(1332.5)]);

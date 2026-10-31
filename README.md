@@ -2,6 +2,16 @@
 
 Ứng dụng C# đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF` trên **Windows 10/11 x64** và **macOS 14+ (Apple Silicon / Intel)**. Miễn phí cho sinh viên, giảng viên và phòng thí nghiệm; không cần tài khoản, kích hoạt, thuê bao, Python, Genie 2000 hoặc cài .NET riêng. [Quyền sử dụng miễn phí](DISTRIBUTION-LICENSE.txt).
 
+## Cập nhật v0.10.2 — thư viện đồng vị tích hợp
+
+- Kèm sẵn `Stdlib.nlb`: 109 đồng vị, 511 vạch; tự nạp khi mở ứng dụng lần đầu.
+- Mở phổ có chuẩn năng lượng, fit ROI hoặc dò đỉnh, rồi xem tab **Gợi ý đồng vị**.
+- Nút **Thư viện tích hợp** chuyển về Stdlib; vẫn có thể chọn thư mục NLB/CSV riêng.
+- Nhớ thư viện đã chọn; nếu thư mục đã lưu không còn dùng được, tự chuyển về Stdlib
+  và thông báo. Dữ liệu được nhúng vào ứng dụng, dùng ngoại tuyến, không cần chép file.
+- Kết quả là gợi ý theo năng lượng; nguồn/ngày cập nhật dữ liệu hạt nhân trong NLB
+  chưa được xác minh. [Chi tiết sử dụng](docs/Goi_y_dong_vi_v0.10.0.md).
+
 ## Tải và cài đặt
 
 Mở **[bản mới nhất](https://github.com/lehoangminhhcmus/LeHoangMinh/releases/latest)** để tải:
