@@ -12,7 +12,7 @@
    <StackPanel>
     <TextBlock x:Name="SpectrumLabel" FontWeight="SemiBold"/>
     <WrapPanel Margin="0,6,0,0">
-     <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Live time (s) * — từ CNF"/><TextBox x:Name="LiveText"/></StackPanel>
+     <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Live time (s) * — từ phổ"/><TextBox x:Name="LiveText"/></StackPanel>
      <StackPanel Width="150" Margin="0,0,10,0"><TextBlock Text="Real time (s; tùy chọn)"/><TextBox x:Name="RealText"/></StackPanel>
      <StackPanel Width="520"><TextBlock Text="ROI đã fit của phổ đang mở"/><ComboBox x:Name="RoiChoice" DisplayMemberPath="Label" Margin="0,3,0,8"/></StackPanel>
     </WrapPanel>
@@ -38,6 +38,8 @@
       <TextBlock Text="Chọn ROI phía trên; diện tích và live time lấy từ phổ. Chỉ cần hoạt độ nguồn và xác suất gamma. Để trống các thông tin bổ sung nếu chưa có." Margin="0,7"/>
       <TextBlock x:Name="ActivityBasisLabel" Text="Hoạt độ tại đầu phép đo (Bq) *"/><TextBox x:Name="ActivityText"/>
       <TextBlock Text="Năng lượng vạch keV (trống = tâm ROI)"/><TextBox x:Name="GammaEnergy"/>
+      <CheckBox x:Name="UseLibraryGamma" Content="Lấy Pγ từ vạch đã xác nhận cho ROI" Checked="LibraryProbabilityModeChanged" Unchecked="LibraryProbabilityModeChanged"/>
+      <TextBlock x:Name="LibraryGammaSummary" Text="Bỏ chọn để tự nhập. Xác nhận vạch trong tab Gợi ý đồng vị trước." Foreground="#52657B"/>
       <TextBlock Text="Xác suất phát gamma (%) *"/><TextBox x:Name="GammaProbability"/>
       <TextBlock Text="Mặc định ε = Nđỉnh / (A × live time × Pγ). A đã quy đổi về đầu đo; không tự giảm hoạt độ lần nữa. Nếu không nhập bán rã, chưa hiệu chỉnh phân rã trong phép đo." Foreground="#9A5900" Margin="0,5,0,8"/>
       <CheckBox x:Name="UseCertificateDecay" Content="Tự quy đổi A từ ngày chứng nhận" Checked="ActivityModeChanged" Unchecked="ActivityModeChanged" Margin="0,5,0,10"/>
@@ -89,6 +91,8 @@
      <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,0,14,0">
       <TextBlock Text="Dùng ROI và điều kiện phép đo ở phía trên. Cần phổ mẫu độc lập với các phổ đã dùng tạo bộ chuẩn." Margin="0,0,0,8"/>
       <CheckBox x:Name="GeometryConfirmed" Margin="0,5,0,12"><TextBlock Text="Tôi đã kiểm tra mẫu khớp detector, hình học, khoảng cách và cấu hình của bộ chuẩn"/></CheckBox>
+      <CheckBox x:Name="UseLibrarySampleGamma" Content="Lấy Pγ từ vạch đã xác nhận cho ROI" Checked="LibraryProbabilityModeChanged" Unchecked="LibraryProbabilityModeChanged"/>
+      <TextBlock x:Name="LibrarySampleGammaSummary" Text="Bỏ chọn để tự nhập. Thư viện không cung cấp sai số Pγ." Foreground="#52657B"/>
       <TextBlock Text="Đồng vị của mẫu"/><TextBox x:Name="SampleNuclide"/>
       <TextBlock Text="Năng lượng vạch (keV)"/><TextBox x:Name="SampleEnergy"/>
       <TextBlock Text="Xác suất phát gamma (%)"/><TextBox x:Name="SampleProbability"/>

@@ -51,6 +51,7 @@ try
 }
 finally { File.Delete(output); }
 ChnChecks.Run(Check);
+ConfirmedGammaChecks.Run(Check);
 AnalysisChecks.Run(Check,args.Length>0?args[0]:null);
 EfficiencyChecks.Run(Check);
 NuclideChecks.Run(Check);

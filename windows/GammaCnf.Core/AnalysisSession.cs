@@ -6,6 +6,7 @@ public enum BackgroundTimeBasis { LiveTime, RealTime }
 
 public sealed class AnalysisSession
 {
+    public Guid Id {get;}=Guid.NewGuid();
     public Spectrum Sample { get; private set; }
     public long Revision {get;private set;}
     public Spectrum? Background { get; private set; }

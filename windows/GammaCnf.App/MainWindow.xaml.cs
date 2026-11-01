@@ -191,7 +191,7 @@ public partial class MainWindow : Window
     {
         if(session is null||currentPath is null||originalBytes is null)throw new CnfException("Mở phổ, tạo ROI và fit trước khi thiết lập hiệu suất.");
         string id=MeasurementIdentity.Create(session.Sample);
-        var window=new EfficiencyWindow(session,rows.Select(r=>r.Result).ToArray(),currentPath,id,backgroundPath,efficiencyWorkspace){Owner=this};
+        var window=new EfficiencyWindow(session,rows.Select(r=>r.Result).ToArray(),currentPath,id,backgroundPath,efficiencyWorkspace,active?.ConfirmedLines.Values.ToArray()){Owner=this};
         window.ShowDialog();
     });
     private void OpenClick(object sender,RoutedEventArgs e)
@@ -261,7 +261,7 @@ public partial class MainWindow : Window
             CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
             FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF/CHN.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
             PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";SaveCnfButton.IsEnabled=CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.10.3";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            Title="Gamma CNF Reader 0.10.4";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -273,7 +273,7 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.10.3";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.10.4";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";

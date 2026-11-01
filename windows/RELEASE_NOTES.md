@@ -1,12 +1,14 @@
-# Gamma CNF Reader v0.10.3 — đọc phổ ORTEC CHN
+# Gamma CNF Reader v0.10.4 — Pγ từ thư viện và nhập tay
 
-- Mở/kéo thả `.chn` cùng `.cnf` trên Windows/macOS; chọn CHN làm phổ mẫu/phông.
-- Đọc UInt32 counts nguyên gốc, live/real time 20 ms, ngày bắt đầu và chuẩn tuyến
-  tính/bậc hai. Giữ số đếm ở các kênh đầu/cuối.
-- Dùng chung ROI/Gaussian, dò đỉnh, thư viện Stdlib, vạch đối chiếu và xuất CSV/PNG/TXT.
-- CHN chỉ đọc; chỉnh chuẩn chỉ áp dụng trong phiên. Khóa ghi hiệu chuẩn CNF cho CHN.
-- Nhận header 32 byte, offset kênh 0, 1–32.768 kênh, trailer vắng mặt/256/512 byte.
-  Từ chối file thiếu dữ liệu hoặc offset chưa hỗ trợ; cảnh báo khi ngày/chuẩn không hợp lệ.
+- Thêm **Xác nhận vạch cho ROI** trong tab Gợi ý đồng vị; gắn một vạch thư viện
+  cụ thể với đỉnh Gaussian đang phân tích.
+- Tab tạo điểm chuẩn và tính hoạt độ có lựa chọn **Lấy Pγ từ vạch đã xác nhận cho ROI**.
+  Lấy đúng đồng vị/năng lượng/Pγ/tham chiếu; vẫn giữ chế độ nhập tay mặc định và
+  khôi phục các giá trị đã nhập khi bỏ chọn thư viện.
+- Chặn Pγ thiếu, bằng 0, ngoài phạm vi và xác nhận cũ sau thay đổi phân tích/ROI.
+  Không tự dùng xác suất từ ứng viên gần nhất hoặc ROI khác.
+- Ghi nguồn thư viện vào JSON/TXT; không tự tạo sai số Pγ hay lấy bán rã từ NLB.
+- Hỗ trợ đồng nhất Windows/macOS và phổ CNF/CHN.
 
-Kiểm tra: 257 kiểm tra chung (260 khi có file CHN mẫu); build Windows, smoke UI headless
-bao gồm CHN, kiểm tra CNF hồi quy. File đo người dùng không được đưa vào gói phát hành.
+Kiểm tra: 271 kiểm tra Core về phần trăm/fraction, nguồn dữ liệu, vạch thiếu Pγ và xác nhận cũ;
+smoke UI về xác nhận, hiệu suất/hoạt độ, nhập tay, đổi ROI và lưu JSON.

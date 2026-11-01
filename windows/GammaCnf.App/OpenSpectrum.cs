@@ -38,6 +38,7 @@ public sealed class OpenSpectrum : INotifyPropertyChanged
     public List<RoiRange> Ranges {get;}=[];
     public Dictionary<RoiRange,DetectedRoi> AutomaticRois {get;}=[];
     public Dictionary<RoiRange,long> AutomaticSearchRevisions {get;}=[];
+    public Dictionary<RoiRange,ConfirmedGammaLine> ConfirmedLines {get;}=[];
     public SpectrumViewState View {get;}=new();
     public OpenSpectrum(string path,byte[] bytes,Spectrum spectrum)
     {this.path=System.IO.Path.GetFullPath(path);OriginalBytes=bytes;Session=new(spectrum);View.Energy=spectrum.Calibration is not null;}

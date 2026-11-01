@@ -134,3 +134,9 @@ dùng ngoại tuyến. Xem [hướng dẫn](../docs/Goi_y_dong_vi_v0.10.0.md).
 Có thể mở/kéo thả `.chn` hoặc chọn CHN làm phông. Dùng ROI, dò đỉnh, Stdlib và
 xuất dữ liệu như CNF. CHN chỉ đọc; chỉnh chuẩn chỉ dùng trong phiên, nút ghi chuẩn
 CNF bị khóa. Xem [phạm vi hỗ trợ](../docs/Ortec_CHN_v0.10.3.md).
+
+## Pγ từ thư viện — v0.10.4
+
+Xác nhận hàng vạch trong **Gợi ý đồng vị** bằng nút **Xác nhận vạch cho ROI**.
+Ở cửa sổ hiệu suất/hoạt độ, chọn ROI và bật **Lấy Pγ từ vạch đã xác nhận cho ROI**,
+hoặc bỏ chọn để nhập tay. Xem [hướng dẫn](../docs/Xac_suat_gamma_v0.10.4.md).

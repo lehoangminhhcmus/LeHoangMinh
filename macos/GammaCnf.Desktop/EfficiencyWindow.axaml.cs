@@ -49,9 +49,10 @@ public partial class EfficiencyWindow : Window
     private ActivityRequest? activityRequest;
     private RoiResult? activityRoi;
     private EfficiencyProfile? activityProfile;
-    public EfficiencyWindow(AnalysisSession current,IReadOnlyList<RoiResult> rois,string spectrumPath,string id,string? backgroundPath,EfficiencyWorkspace state)
+    public EfficiencyWindow(AnalysisSession current,IReadOnlyList<RoiResult> rois,string spectrumPath,string id,string? backgroundPath,EfficiencyWorkspace state,IReadOnlyList<ConfirmedGammaLine>? confirmed=null)
     {
         InitializeComponent();session=current;path=spectrumPath;measurementId=id;background=backgroundPath;workspace=state;
+        confirmedLines=confirmed??[];
         SpectrumLabel.Text=Path.GetFileName(path)+" • "+session.Sample.Title;
         RoiChoice.ItemsSource=rois.Select((r,i)=>new EfficiencyRoi(i+1,r)).Where(r=>r.Result.Success).ToArray();
         if(RoiChoice.Items.Count>0)RoiChoice.SelectedIndex=0;
@@ -63,6 +64,7 @@ public partial class EfficiencyWindow : Window
         if(state.LastSource is {} source)FillSource(source);
         if(state.LastGamma is {} gamma)FillGamma(gamma);
         RefreshFit();
+        InitializeLibraryProbability();
     }
     private static string F(double x)=>x.ToString("G12",CultureInfo.InvariantCulture);
     private static double Num(TextBox box)
@@ -105,6 +107,7 @@ public partial class EfficiencyWindow : Window
     private void AddPointClick(object sender,RoutedEventArgs e)=>Run(AddPoint);
     private void AddPoint()
     {
+        ApplyLibraryProbability(false);
         var boxes=new TextBox[]{DetectorText,GeometryText,DistanceText,GeometryNotes,SourceId,SourceNuclide,CertificateText,ActivityText,ActivitySigmaText,ActivityCoverageText,ReferenceDateText,HalfLifeText,HalfLifeSigmaText,MeasuredAt,LiveText,RealText,GammaEnergy,GammaProbability,GammaSigma,NuclearReference,StandardCorrection,StandardCorrectionSigma,StandardCorrectionNotes};
         var fields=boxes.ToDictionary(box=>box.Name!,box=>(string?)box.Text);
         var o=EfficiencyInput.Build(session,SelectedRoi().Result,path,measurementId,background,fields,UseCertificateDecay.IsChecked==true);var g=o.Geometry;
@@ -179,6 +182,7 @@ public partial class EfficiencyWindow : Window
     private void Calculate()
     {
         activity=null;activityProfile=null;ActivitySummary.Text="Chưa có kết quả hợp lệ cho dữ liệu hiện tại.";
+        ApplyLibraryProbability(true);
         if(GeometryConfirmed.IsChecked!=true)throw new CnfException("Cần xác nhận hình học/cấu hình mẫu khớp bộ chuẩn.");
         var profile=CurrentProfile();
         var measured=Date(MeasuredAt);var gamma=new GammaEmission(Num(SampleEnergy),Num(SampleProbability)/100,Num(SampleProbabilitySigma)/100,(SampleNuclearReference.Text??"").Trim());
@@ -186,6 +190,8 @@ public partial class EfficiencyWindow : Window
         var roi=SelectedRoi().Result;var result=ActivityAnalysis.Calculate(profile,roi,request);
         activity=result;activityRequest=request;activityRoi=roi;activityProfile=profile;
         ActivitySummary.Text=$"{request.Nuclide} • {gamma.EnergyKeV:G9} keV\nε = {result.Efficiency.Value:G7} ± {result.Efficiency.Sigma:G4}\nĐầu đo: {result.BqAtStart:N4} ± {result.SigmaBqAtStart:N4} Bq\nNgày quy chiếu {request.ReportDate:O}:\n{result.BqAtReportDate:N4} ± {result.SigmaBqAtReportDate:N4} Bq"+(result.BqPerKg is double specific?$"\n{specific:N4} ± {result.SigmaBqPerKg:N4} Bq/kg":"")+"\n\n"+result.Notes;
+        if(UseLibrarySampleGamma.IsChecked==true&&Num(SampleProbabilitySigma)==0)
+            ActivitySummary.Text+="\nThư viện chưa cung cấp sai số Pγ; sai số hoạt độ hiển thị chưa gồm thành phần này.";
         StatusText.Text="Đã tính hoạt độ cho ROI này. Xuất TXT sẽ tính lại từ các ô hiện tại để tránh xuất kết quả cũ.";
     }
     private async void ExportActivityClick(object sender,RoutedEventArgs e)=>await RunAsync(async ()=>
@@ -224,13 +230,19 @@ public partial class EfficiencyWindow : Window
         using(var f=File.Create(Path.Combine(directory,"efficiency.png")))image.Save(f);
         MainWindow.CaptureEvidence(this,Path.Combine(directory,"efficiency-window.png"));
         workspace.Dirty=false;
-        var sampleWindow=new EfficiencyWindow(session,[roi],path,"SYNTHETIC-INDEPENDENT-SAMPLE",background,workspace){automatedSmoke=true};
+        var sampleWindow=new EfficiencyWindow(session,[roi],path,"SYNTHETIC-INDEPENDENT-SAMPLE",background,workspace,[ConfirmedGammaLine.Create(session,roi,new NuclideSuggestion(1,source.Nuclide,energy,energy,0,2,50,0,"SYNTHETIC nuclear data","test.csv"))]){automatedSmoke=true};
         try
         {
             sampleWindow.Show(this);sampleWindow.MeasuredAt.Text=MeasuredAt.Text;
             sampleWindow.SampleNuclide.Text=source.Nuclide;sampleWindow.SampleEnergy.Text=F(energy);sampleWindow.SampleProbability.Text="50";sampleWindow.SampleProbabilitySigma.Text="0.5";
             sampleWindow.SampleNuclearReference.Text="SYNTHETIC nuclear data";sampleWindow.SampleHalfLife.Text="1000";sampleWindow.SampleHalfLifeSigma.Text="0.1";
             sampleWindow.MassText.Text="0.5";sampleWindow.MassSigmaText.Text="0.001";sampleWindow.GeometryConfirmed.IsChecked=true;
+            sampleWindow.Calculate();
+            double manualBq=sampleWindow.activity!.BqAtStart;
+            sampleWindow.UseLibrarySampleGamma.IsChecked=true;sampleWindow.Calculate();
+            if(Math.Abs(sampleWindow.activity!.BqAtStart/manualBq-1)>1e-9||!sampleWindow.SampleProbability.IsReadOnly)throw new Exception("Library Pgamma activity calculation failed.");
+            sampleWindow.UseLibrarySampleGamma.IsChecked=false;
+            if(sampleWindow.SampleProbability.IsReadOnly||Num(sampleWindow.SampleProbabilitySigma)!=.5)throw new Exception("Activity manual gamma restoration failed.");
             sampleWindow.Calculate();
             if(sampleWindow.activity is null||!(sampleWindow.activity.BqPerKg>0))throw new Exception("Activity UI calculation failed.");
             EfficiencyReports.Activity(Path.Combine(directory,"activity.txt"),workspace.Profile,roi,sampleWindow.activityRequest!,sampleWindow.activity,path,background,session.Scale);

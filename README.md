@@ -2,6 +2,14 @@
 
 Ứng dụng C# đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF` trên **Windows 10/11 x64** và **macOS 14+ (Apple Silicon / Intel)**. Miễn phí cho sinh viên, giảng viên và phòng thí nghiệm; không cần tài khoản, kích hoạt, thuê bao, Python, Genie 2000 hoặc cài .NET riêng. [Quyền sử dụng miễn phí](DISTRIBUTION-LICENSE.txt).
 
+## Cập nhật v0.10.4 — lấy Pγ từ vạch đã xác nhận
+
+Chọn hàng vạch trong **Gợi ý đồng vị** → **Xác nhận vạch cho ROI**. Trong cửa sổ
+**Hiệu suất/Hoạt độ**, chọn ROI đó và bật **Lấy Pγ từ vạch đã xác nhận cho ROI**.
+Ứng dụng lấy đúng đồng vị, năng lượng, Pγ và nguồn thư viện cho điểm chuẩn hoặc
+phép tính hoạt độ. Bỏ chọn để nhập tay; các giá trị nhập tay trước đó được giữ.
+Xem [hướng dẫn Pγ](docs/Xac_suat_gamma_v0.10.4.md).
+
 ## Cập nhật v0.10.3 — đọc phổ ORTEC CHN
 
 Mở/kéo thả phổ `.chn` cùng với `.cnf`, dùng làm phổ mẫu hoặc phông trên cả
