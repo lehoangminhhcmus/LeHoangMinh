@@ -4,8 +4,8 @@
  <key>CFBundleName</key><string>Gamma CNF Reader</string>
  <key>CFBundleDisplayName</key><string>Gamma CNF Reader</string>
  <key>CFBundleIdentifier</key><string>vn.edu.hcmus.lehoangminh.gammacnfreader</string>
- <key>CFBundleVersion</key><string>0.10.2</string>
- <key>CFBundleShortVersionString</key><string>0.10.2</string>
+ <key>CFBundleVersion</key><string>0.10.3</string>
+ <key>CFBundleShortVersionString</key><string>0.10.3</string>
  <key>CFBundleExecutable</key><string>GammaCNFReader</string>
  <key>CFBundlePackageType</key><string>APPL</string>
  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -14,9 +14,9 @@
  <key>NSPrincipalClass</key><string>NSApplication</string>
  <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
  <key>CFBundleDocumentTypes</key><array><dict>
-  <key>CFBundleTypeName</key><string>Canberra gamma spectrum</string>
+  <key>CFBundleTypeName</key><string>Gamma spectrum CNF/CHN</string>
   <key>CFBundleTypeRole</key><string>Viewer</string>
   <key>LSHandlerRank</key><string>Alternate</string>
-  <key>CFBundleTypeExtensions</key><array><string>cnf</string><string>CNF</string></array>
+  <key>CFBundleTypeExtensions</key><array><string>cnf</string><string>CNF</string><string>chn</string><string>CHN</string></array>
  </dict></array>
 </dict></plist>

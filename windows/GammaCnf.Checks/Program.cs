@@ -3,6 +3,7 @@ using System.Globalization;
 using GammaCnf.Core;
 
 if(args.Length==2 && args[0]=="--write-fixture") { File.WriteAllBytes(args[1],AnalysisChecks.Fixture());return; }
+if(args.Length==2 && args[0]=="--write-chn-fixture") { File.WriteAllBytes(args[1],ChnChecks.Fixture());return; }
 int passed=0;
 void Check(bool ok,string name) { if(!ok) throw new Exception("FAIL: "+name); Console.WriteLine("PASS: "+name);passed++; }
 void Reject(byte[] data,string name)
@@ -49,6 +50,7 @@ try
     else Console.WriteLine("NOT RUN: private sample checks (pass path as argument)");
 }
 finally { File.Delete(output); }
+ChnChecks.Run(Check);
 AnalysisChecks.Run(Check,args.Length>0?args[0]:null);
 EfficiencyChecks.Run(Check);
 NuclideChecks.Run(Check);

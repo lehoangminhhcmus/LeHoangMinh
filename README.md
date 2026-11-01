@@ -2,6 +2,14 @@
 
 Ứng dụng C# đọc và phân tích phổ gamma Canberra/Genie 2000 `.CNF` trên **Windows 10/11 x64** và **macOS 14+ (Apple Silicon / Intel)**. Miễn phí cho sinh viên, giảng viên và phòng thí nghiệm; không cần tài khoản, kích hoạt, thuê bao, Python, Genie 2000 hoặc cài .NET riêng. [Quyền sử dụng miễn phí](DISTRIBUTION-LICENSE.txt).
 
+## Cập nhật v0.10.3 — đọc phổ ORTEC CHN
+
+Mở/kéo thả phổ `.chn` cùng với `.cnf`, dùng làm phổ mẫu hoặc phông trên cả
+Windows/macOS. Đọc số đếm nguyên gốc, live/real time, ngày bắt đầu và chuẩn năng
+lượng tuyến tính/bậc hai; dùng chung ROI, dò đỉnh, thư viện đồng vị và xuất CSV/PNG.
+CHN chỉ đọc: chỉnh chuẩn trong phiên không sửa file gốc và không ghi thành CNF.
+Xem [phạm vi định dạng CHN](docs/Ortec_CHN_v0.10.3.md).
+
 ## Cập nhật v0.10.2 — thư viện đồng vị tích hợp
 
 - Kèm sẵn `Stdlib.nlb`: 109 đồng vị, 511 vạch; tự nạp khi mở ứng dụng lần đầu.

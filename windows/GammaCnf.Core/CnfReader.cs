@@ -4,9 +4,12 @@ using System.Text;
 
 namespace GammaCnf.Core;
 
+public enum SpectrumFormat { CanberraCnf, OrtecChn }
+
 public sealed record Spectrum(uint[] Counts, string Title, double[]? Calibration,
     double? RealTime, double? LiveTime, DateTime? Started, IReadOnlyList<string> Warnings)
 {
+    public SpectrumFormat Format {get;init;}=SpectrumFormat.CanberraCnf;
     public ulong Total => Counts.Aggregate(0UL, (sum, value) => sum + value);
     public double? Energy(double channel)
     {

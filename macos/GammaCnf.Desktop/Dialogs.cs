@@ -6,7 +6,7 @@ using Avalonia.Platform.Storage;
 namespace GammaCnf.App;
 internal static class Dialogs
 {
- private static FilePickerFileType Type(string extension)=>new(extension.ToUpperInvariant()+" files") {Patterns=["*."+extension,"*."+extension.ToUpperInvariant()]};
+ private static FilePickerFileType Type(string extension)=>new(extension.ToUpperInvariant()+" files") {Patterns=extension.Split(';').SelectMany(e=>new[]{"*."+e,"*."+e.ToUpperInvariant()}).ToArray()};
  internal static async Task<string[]> Open(Window owner,string title,string extension,bool multiple=false)
  {
   var files=await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions{Title=title,AllowMultiple=multiple,FileTypeFilter=[Type(extension),FilePickerFileTypes.All]});

@@ -202,6 +202,7 @@ public partial class MainWindow : Window
         File.WriteAllText(Path.Combine(directory,"automatic-peak-success.txt"),"PASS: asynchronous automatic search, Gaussian ROI, repeated search, manual ROI edit/preservation, cancellation, provenance TXT");
         first.CalibrationDirty=false;CloseDocument(first);if(active is not null||documents.Count!=0||Plot.Spectrum is not null)throw new Exception("Closing final spectrum did not clear the UI.");
         File.WriteAllText(Path.Combine(directory,"multi-spectrum-success.txt"),"PASS: multi-open/deduplicate/previous/next/close; per-spectrum ROI, calibration drafts, background/time scale, log view and zoom; direct ROI totals");
+        RunChnSmokeChecks(path,directory);
     }
     internal static void CaptureEvidence(Control control,string path)
     {
@@ -217,14 +218,14 @@ public partial class MainWindow : Window
         await window.ShowDialog(this);
     });
     private async void OpenClick(object sender,RoutedEventArgs e)=>await ExecuteAsync(async ()=>
-    {foreach(var file in await Dialogs.Open(this,"Mở phổ CNF","cnf",true))LoadFile(file);});
+    {foreach(var file in await Dialogs.Open(this,"Mở phổ CNF/CHN","cnf;chn",true))LoadFile(file);});
     private void LoadFile(string path)=>Execute(()=>
     {
         string full=Path.GetFullPath(path);
         var existing=documents.FirstOrDefault(d=>string.Equals(d.Path,full,StringComparison.Ordinal));
         if(existing is not null){Activate(existing);Status.Text="Đã chuyển tới phổ đang mở: "+full;return;}
         if(documents.Count>=32)throw new CnfException("Tối đa 32 phổ đang mở. Đóng bớt phổ trước khi mở thêm.");
-        var bytes=ReadBytes(full);var sample=CnfReader.Decode(bytes);var document=new OpenSpectrum(full,bytes,sample);
+        var bytes=ReadBytes(full);var sample=SpectrumReader.Decode(bytes);var document=new OpenSpectrum(full,bytes,sample);
         documents.Add(document);Activate(document);Status.Text=$"Đang mở {documents.Count} phổ. Dùng Phổ trước/Phổ sau hoặc danh sách để chuyển.";
     });
     private void CaptureCurrentView()
@@ -278,9 +279,9 @@ public partial class MainWindow : Window
         {
             rows.Clear();RefreshNuclideSuggestions();Plot.Spectrum=null;Plot.Values=null;Plot.Rois=[];Plot.DetectedPeaks=[];Plot.Reset();
             CalibrationPlot.Coefficients=null;CalibrationPlot.InvalidateVisual();
-            FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
-            PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
-            Title="Gamma CNF Reader 0.10.2";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
+            FileLabel.Text="Chưa mở phổ";Metadata.Text="Chọn hoặc kéo thả một hay nhiều file CNF/CHN.";CalibrationLabel.Text="";BackgroundLabel.Text="Chưa trừ phông";
+            PendingBackgroundLabel.Text="Chưa chọn file";ScaleText.Text="";Warnings.Text="";SaveCnfButton.IsEnabled=CsvButton.IsEnabled=PngButton.IsEnabled=EnergyCheck.IsEnabled=false;
+            Title="Gamma CNF Reader 0.10.3";Status.Text="Đã đóng tất cả phổ.";UpdateDocumentButtons();
         }
     }
     private void SetCoefficientFields()
@@ -292,13 +293,14 @@ public partial class MainWindow : Window
     {
         if(session is null)return;var s=session.Sample;
         FileLabel.Text=$"{Path.GetFileName(currentPath)}   |   {s.Title}";
-        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.10.2";
+        Title=$"{Path.GetFileName(currentPath)} — Gamma CNF Reader 0.10.3";
         string Sec(double? t)=>t is double v?$"{v:N3} s":"Không có";
         Metadata.Text=$"{s.Counts.Length:N0} kênh   •   {s.Total:N0} số đếm gốc   •   Bắt đầu (theo file): {s.Started?.ToString("dd/MM/yyyy HH:mm:ss")??"Không có"}\nThời gian thực: {Sec(s.RealTime)}   •   Thời gian sống: {Sec(s.LiveTime)}";
         if(s.RealTime>0&&s.LiveTime.HasValue&&s.LiveTime<=s.RealTime)Metadata.Text+=$"   •   Thời gian chết: {(1-s.LiveTime.Value/s.RealTime.Value)*100:F2}%";
         CalibrationLabel.Text=(calibrationDirty?"[Chưa lưu CNF] ":"")+(s.Calibration is null?"Chỉ hiển thị kênh.":"E(ch), keV: "+string.Join("   ",s.Calibration.Select((c,i)=>$"a{i} = {c:G9}")));
         BackgroundLabel.Text=session.Background is null?"Chưa trừ phông":$"Phông: {Path.GetFileName(backgroundPath)}   •   {session.BackgroundOriginalSeconds:N3} → {session.BackgroundTargetSeconds:N3} s   •   α = {session.Scale:G9} ({scaleMode})   •   Tổng net: {session.Values.Sum():N3}";
         CalibrationPlot.Coefficients=s.Calibration;CalibrationPlot.Channels=s.Counts.Length;CalibrationPlot.InvalidateVisual();
+        SaveCnfButton.IsEnabled=s.Format==SpectrumFormat.CanberraCnf;
         EnergyCheck.IsEnabled=s.Calibration is not null;
         Plot.Spectrum=s;Plot.Values=session.Values;Plot.EnergyAxis=EnergyCheck.IsChecked==true;Plot.LogScale=LogCheck.IsChecked==true;
         Refit();if(reset)Plot.Reset();else Plot.InvalidateVisual();
@@ -384,11 +386,12 @@ public partial class MainWindow : Window
     {
         if(session is null)throw new CnfException("Mở phổ mẫu trước.");
         session.SetCalibration([Number(A0.Text),Number(A1.Text),Number(A2.Text),Number(A3.Text)]);
-        calibrationDirty=true;EnergyCheck.IsChecked=true;Refresh();Status.Text="Đã áp dụng đường chuẩn và tính lại các ROI. Chưa ghi vào CNF.";
+        calibrationDirty=session.Sample.Format==SpectrumFormat.CanberraCnf;EnergyCheck.IsChecked=true;Refresh();Status.Text=calibrationDirty?"Đã áp dụng đường chuẩn và tính lại các ROI. Chưa ghi vào CNF.":"Đã áp dụng đường chuẩn CHN trong phiên; không thay đổi file gốc.";
     }
     private async void SaveCnfClick(object sender,RoutedEventArgs e)=>await ExecuteAsync(async ()=>
     {
         if(session is null||originalBytes is null||currentPath is null)throw new CnfException("Mở phổ mẫu trước.");
+        if(session.Sample.Format!=SpectrumFormat.CanberraCnf)throw new CnfException("CHN chỉ hỗ trợ đọc; hiệu chuẩn chỉnh trong phiên không ghi thành CNF.");
         ApplyCalibration();
         // Validate writability before asking the user to choose a destination.
         CnfCalibration.Patch(originalBytes,session.Sample.Calibration!);
@@ -406,9 +409,9 @@ public partial class MainWindow : Window
     private async void BackgroundClick(object sender,RoutedEventArgs e)=>await ExecuteAsync(async ()=>
     {
         if(session is null)throw new CnfException("Mở phổ mẫu trước.");
-        var filename=(await Dialogs.Open(this,"Chọn phổ phông","cnf")).FirstOrDefault();if(filename is null)return;
+        var filename=(await Dialogs.Open(this,"Chọn phổ phông CNF/CHN","cnf;chn")).FirstOrDefault();if(filename is null)return;
         if(string.Equals(Path.GetFullPath(filename),currentPath,StringComparison.Ordinal))throw new CnfException("Chọn file phông là phép đo độc lập với phổ mẫu.");
-        var bg=CnfReader.Read(filename);
+        var bg=SpectrumReader.Read(filename);
         if(MeasurementIdentity.Create(bg)==MeasurementIdentity.Create(session.Sample))throw new CnfException("Phổ phông trùng phép đo mẫu; cần phép đo phông độc lập.");
         pendingBackground=bg;pendingBackgroundPath=filename;
         PendingBackgroundLabel.Text=Path.GetFileName(filename)+$" • live: {bg.LiveTime?.ToString("N3")??"NA"} s • real: {bg.RealTime?.ToString("N3")??"NA"} s";

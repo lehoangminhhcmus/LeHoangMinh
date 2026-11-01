@@ -221,3 +221,9 @@ Kèm sẵn Stdlib (109 đồng vị, 511 vạch), tự nạp lần đầu. Mở 
 fit ROI/dò đỉnh rồi xem tab **Gợi ý đồng vị**. Nút **Thư viện tích hợp** chuyển về
 Stdlib; vẫn có thể chọn và nhớ thư mục NLB/CSV riêng. Thư viện được nhúng vào app,
 dùng ngoại tuyến. Xem [hướng dẫn](../docs/Goi_y_dong_vi_v0.10.0.md).
+
+## ORTEC CHN — v0.10.3
+
+Có thể mở/kéo thả `.chn` hoặc chọn CHN làm phông. Dùng ROI, dò đỉnh, Stdlib và
+xuất dữ liệu như CNF. CHN chỉ đọc; chỉnh chuẩn chỉ dùng trong phiên, nút ghi chuẩn
+CNF bị khóa. Xem [phạm vi hỗ trợ](../docs/Ortec_CHN_v0.10.3.md).

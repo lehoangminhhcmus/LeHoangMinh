@@ -20,7 +20,7 @@
    <ComboBox x:Name="OpenedSpectra" DisplayMemberPath="Label" SelectionChanged="OpenedSpectrumChanged" VerticalContentAlignment="Center" Margin="6,0,12,0" ToolTip="Các phổ đang mở. Dấu *: hiệu chuẩn chưa lưu CNF. Ctrl+Tab/Ctrl+Shift+Tab để chuyển."/>
   </DockPanel>
   <Border Grid.Row="2" Padding="14,10" Margin="0,0,0,12" Background="White" CornerRadius="6">
-   <StackPanel><TextBlock x:Name="FileLabel" Text="Chưa mở phổ" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Metadata" Text="Chọn hoặc kéo thả file Canberra .CNF." Margin="0,5,0,0" TextWrapping="Wrap"/><TextBlock x:Name="CalibrationLabel" TextWrapping="Wrap" Foreground="#52657B"/><TextBlock x:Name="BackgroundLabel" Text="Chưa trừ phông" Foreground="#52657B" TextWrapping="Wrap"/></StackPanel>
+   <StackPanel><TextBlock x:Name="FileLabel" Text="Chưa mở phổ" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Metadata" Text="Chọn hoặc kéo thả phổ Canberra .CNF / ORTEC .CHN." Margin="0,5,0,0" TextWrapping="Wrap"/><TextBlock x:Name="CalibrationLabel" TextWrapping="Wrap" Foreground="#52657B"/><TextBlock x:Name="BackgroundLabel" Text="Chưa trừ phông" Foreground="#52657B" TextWrapping="Wrap"/></StackPanel>
   </Border>
   <Grid Grid.Row="3">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="370"/></Grid.ColumnDefinitions>
@@ -36,13 +36,13 @@
       <TextBlock Text="a3"/><TextBox x:Name="A3" Text="0" Margin="0,3,0,8"/>
       <Button Content="Áp dụng hệ số" Click="ApplyCalibrationClick" Margin="0,8,0,8"/>
       <local:EnergyPlot x:Name="CalibrationPlot" Height="240" Margin="0,8"/>
-      <Button Content="Lưu hiệu chuẩn vào CNF…" Click="SaveCnfClick" Margin="0,0,0,8"/>
-      <TextBlock Text="Chọn lại file gốc để lưu chồng. App tạo bản .bak trước khi thay file. Chỉ ghi hiệu chuẩn; không ghi số đếm sau trừ phông hoặc ROI vào CNF. Kết quả phân tích cũ bên trong CNF không được tính lại." TextWrapping="Wrap" Foreground="#9A5900"/>
+      <Button x:Name="SaveCnfButton" Content="Lưu hiệu chuẩn vào CNF…" Click="SaveCnfClick" Margin="0,0,0,8"/>
+      <TextBlock Text="CHN chỉ đọc; chỉnh chuẩn CHN chỉ dùng trong phiên. Với CNF, chọn lại file gốc để lưu chồng. App tạo bản .bak trước khi thay file. Chỉ ghi hiệu chuẩn; không ghi số đếm sau trừ phông hoặc ROI vào CNF. Kết quả phân tích cũ bên trong CNF không được tính lại." TextWrapping="Wrap" Foreground="#9A5900"/>
      </StackPanel></ScrollViewer>
     </TabItem>
     <TabItem Header="Trừ phông">
      <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="12">
-      <Button Content="Chọn phổ phông CNF…" Click="BackgroundClick" Margin="0,0,0,10"/>
+      <Button Content="Chọn phổ phông CNF/CHN…" Click="BackgroundClick" Margin="0,0,0,10"/>
       <TextBlock x:Name="PendingBackgroundLabel" Text="Chưa chọn file" TextWrapping="Wrap"/>
       <TextBlock Text="Tự chuẩn hóa thời gian phông về thời gian phổ mẫu:" Margin="0,12,0,5" TextWrapping="Wrap"/>
       <ComboBox x:Name="TimeBasisChoice" SelectedIndex="0" SelectionChanged="BackgroundTimeChanged" Margin="0,0,0,8"><ComboBoxItem Content="Live time (khuyến nghị)"/><ComboBoxItem Content="Real time"/></ComboBox>
